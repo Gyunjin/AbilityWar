@@ -744,7 +744,22 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     private World createFreshGameWorld() {
-        String worldName = GAME_WORLD_PREFIX + new Random().nextInt(10000);
+        // 월드 이름에 현재 시각(밀리초)을 씁니다. 예전에는 nextInt(10000)이라 이름이 겹칠 수
+        // 있었는데, Bukkit.createWorld()는 같은 이름의 폴더가 이미 있으면 새로 생성하지 않고
+        // "그 월드를 불러옵니다". 즉 이름이 한 번 겹치면 새 맵인 줄 알고 옛 맵을 그대로 쓰게 되고,
+        // 거기 남아있던 이벤트 스폰물이 현재 판의 것으로 오인될 수 있었습니다.
+        // 밀리초 단위 시각은 명령어로 두 번 호출해도 겹칠 수 없습니다.
+        // (GAME_WORLD_DIR_PATTERN이 숫자만 허용하므로 타임스탬프는 그대로 자동 삭제 대상이 됩니다.)
+        String worldName = GAME_WORLD_PREFIX + System.currentTimeMillis();
+
+        // 그래도 폴더가 이미 있다면 조용히 옛 맵을 불러오는 대신 크게 알립니다.
+        // 이 프로젝트가 반복해서 당한 것이 정확히 "조용히 잘못된 상태로 진행하는" 실패였습니다.
+        if (new File(getServer().getWorldContainer(), worldName).exists()) {
+            getLogger().warning("[능력자] '" + worldName + "' 폴더가 이미 존재해 새 맵 생성을 중단합니다."
+                    + " 옛 맵을 새 맵으로 오인해 사용하는 것을 막기 위함입니다.");
+            return null;
+        }
+
         WorldCreator creator = new WorldCreator(worldName);
         creator.seed(new Random().nextLong());
 

@@ -104,9 +104,10 @@ public class SupplyDropEvent implements GameEvent {
             if (candidate != null) return candidate;
         }
 
-        // 플레이어 청크는 항상 로드되어 있으므로 최소한 플레이어 발밑은 안전한 후보입니다.
-        int y = world.getHighestBlockYAt(base.getBlockX(), base.getBlockZ());
-        return new Location(world, base.getBlockX(), y + 1, base.getBlockZ());
+        // 검증을 통과하는 후보를 끝내 못 찾았으면 검증 없이 배치하는 대신 이번 회차를
+        // 건너뜁니다. 용암 속에 상자가 생기는 것보다 이벤트 슬롯을 버리는 편이 낫습니다.
+        ctx.getPlugin().getLogger().info("[능력자] 보급 투하: 적합한 지점을 찾지 못해 이번 회차를 건너뜁니다.");
+        return null;
     }
 
     /**
@@ -115,12 +116,11 @@ public class SupplyDropEvent implements GameEvent {
      * 시도하게 합니다.
      */
     private Location groundLocationIfSafe(World world, double x, double z) {
-        int chunkX = (int) x >> 4;
-        int chunkZ = (int) z >> 4;
-        if (!world.isChunkGenerated(chunkX, chunkZ)) return null;
-
         int bx = (int) Math.floor(x);
         int bz = (int) Math.floor(z);
+        // 청크 좌표와 블록 좌표를 같은 정수에서 유도해야 서로 다른 청크를 가리키지 않습니다.
+        if (!world.isChunkGenerated(bx >> 4, bz >> 4)) return null;
+
         int y = world.getHighestBlockYAt(bx, bz);
         if (y <= 0) return null;
 

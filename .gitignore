@@ -41,3 +41,10 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### AbilityWar ###
+# 머신 종속 (JDK 경로). gradle.properties.example을 복사해서 쓰세요.
+gradle.properties
+# SDD 스크래치 - 진척 원장(progress.md)만 추적합니다. diff/brief/report는 git으로 재생성 가능.
+.superpowers/sdd/*
+!.superpowers/sdd/progress.md

@@ -1,0 +1,9 @@
+# 이 파일을 gradle.properties로 복사한 뒤 자기 머신 경로로 고치세요.
+# gradle.properties 자체는 머신 종속이라 추적하지 않습니다.
+#
+# Java 25 툴체인이 필요합니다. JDK가 Gradle 자동 탐지 경로가 아닌 곳에 있으면
+# 아래로 알려줘야 합니다. 없으면 "release version 25 not supported"로
+# 컴파일이 시작조차 안 되고, IDE에는 가짜 lint 오류가 잔뜩 뜹니다.
+#
+# Windows는 백슬래시를 두 번 씁니다.
+org.gradle.java.installations.paths=F:\tools\java\jdk\corretto-25

@@ -13,9 +13,11 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -23,6 +25,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.MapMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.map.MapView;
 import org.bukkit.scoreboard.DisplaySlot;
@@ -50,6 +54,7 @@ import java.util.regex.Pattern;
 import org.example.abilities.AbilityItems;
 import org.example.abilities.Cooldown;
 import org.example.events.EventSpawnCleanupListener;
+import org.example.events.SupplyDropEvent;
 import org.example.events.EventSpawns;
 import org.example.events.GameContext;
 import org.example.events.GameEventManager;
@@ -118,6 +123,7 @@ public class Main extends JavaPlugin implements Listener {
     private int cfgFarmingTime = 1800;
     private int cfgCombatTime = 300;
     private int cfgEventInterval = 300;
+    private boolean cfgSupplyEnabled = true;
 
     private boolean borderShrinking = false;
     // timeElapsed == cfgFarmingTime 같은 "정확히 같을 때만" 트리거하는 방식은
@@ -179,6 +185,9 @@ public class Main extends JavaPlugin implements Listener {
         cfgFarmingTime = getConfig().getInt("cfg-farming-time", cfgFarmingTime);
         cfgCombatTime = getConfig().getInt("cfg-combat-time", cfgCombatTime);
         cfgEventInterval = getConfig().getInt("cfg-event-interval", cfgEventInterval);
+        cfgSupplyEnabled = getConfig().getBoolean("cfg-supply-enabled", cfgSupplyEnabled);
+        // 이벤트 인스턴스는 GameEventManager가 갖고 있으므로 전역 스위치로 반영합니다.
+        SupplyDropEvent.setEnabled(cfgSupplyEnabled);
 
         this.abilityManager = new AbilityManager(this);
         this.gameEventManager = new GameEventManager(this);
@@ -471,6 +480,8 @@ public class Main extends JavaPlugin implements Listener {
             player.sendMessage(ChatColor.YELLOW + "▶ 최종 자기장 고정 크기: " + ChatColor.WHITE + (int)cfgFinalBorderSize + "x" + (int)cfgFinalBorderSize);
             player.sendMessage(ChatColor.YELLOW + "▶ 이벤트 간격: " + ChatColor.WHITE
                     + (cfgEventInterval > 0 ? cfgEventInterval + "초" : "꺼짐"));
+            player.sendMessage(ChatColor.YELLOW + "▶ 보급 투하: " + ChatColor.WHITE
+                    + (cfgSupplyEnabled ? "켜짐" : "꺼짐"));
             sendDiagnostics(player);
             player.sendMessage(ChatColor.GOLD + "===============================================");
             player.sendMessage("");
@@ -516,6 +527,21 @@ public class Main extends JavaPlugin implements Listener {
         if (cmd.getName().equalsIgnoreCase("게임설정")) {
             if (args.length < 2) {
                 player.sendMessage(ChatColor.RED + "사용법: /게임설정 [설정명] [숫자값]");
+                return true;
+            }
+
+            // 보급투하는 숫자가 아니라 on/off 토글이라 숫자 파싱보다 먼저 처리합니다.
+            if (args[0].equalsIgnoreCase("보급투하")) {
+                boolean on = args[1].equalsIgnoreCase("on");
+                cfgSupplyEnabled = on;
+                SupplyDropEvent.setEnabled(on);
+                try {
+                    getConfig().set("cfg-supply-enabled", cfgSupplyEnabled);
+                    saveConfig();
+                } catch (Exception e) {
+                    getLogger().warning("[능력자] 게임 설정 저장 중 오류: " + e.getMessage());
+                }
+                player.sendMessage(ChatColor.GREEN + "보급 투하 이벤트를 " + (on ? "켰습니다." : "껐습니다."));
                 return true;
             }
 
@@ -604,7 +630,9 @@ public class Main extends JavaPlugin implements Listener {
             Player targetPlayer = Bukkit.getPlayer(args[0]);
             if (targetPlayer == null) return true;
 
-            String targetAbility = args[1];
+            // 능력명에 공백이 있는 경우(예: "바람 인도자")를 위해 두 번째 인자부터 끝까지 합칩니다.
+            // args[1]만 쓰면 "바람"으로 잘려 유효하지 않은 능력이 되어 변경이 조용히 실패했습니다.
+            String targetAbility = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
             if (abilityManager.isValidAbility(targetAbility)) {
                 abilityManager.changePlayerAbilityForce(targetPlayer, targetAbility);
                 player.sendMessage(ChatColor.GREEN + targetPlayer.getName() + "님의 능력을 [" + targetAbility + "](으)로 변경했습니다.");
@@ -707,8 +735,12 @@ public class Main extends JavaPlugin implements Listener {
 
         if (command.getName().equalsIgnoreCase("게임설정")) {
             if (args.length == 1) {
-                String[] options = {"시작크기", "최종크기", "자기장대미지", "평화시간(초)", "전투시간(초)", "이벤트간격(초)"};
+                String[] options = {"시작크기", "최종크기", "자기장대미지", "평화시간(초)", "전투시간(초)", "이벤트간격(초)", "보급투하"};
                 for (String opt : options) { if (opt.startsWith(args[0])) completions.add(opt); }
+            } else if (args.length == 2 && args[0].equalsIgnoreCase("보급투하")) {
+                for (String opt : new String[]{"on", "off"}) {
+                    if (opt.startsWith(args[1].toLowerCase())) completions.add(opt);
+                }
             }
         }
 
@@ -1225,6 +1257,18 @@ public class Main extends JavaPlugin implements Listener {
                     abilityManager.recordHistoryTick(Bukkit.getOnlinePlayers(), isGameStarted);
                 }
 
+                // 평화 파밍 시간 동안 생존 참가자에게 야간투시를 제공합니다.
+                // 300틱(15초)으로 매초 갱신합니다. 바닐라 야간투시는 남은 시간이 10초 미만이면
+                // 화면이 깜빡이므로, 깜빡임을 피하려면 항상 10초 넘게 유지해야 합니다.
+                // 대신 전투 시작 시점(pvpActivated 블록)에서 명시적으로 제거합니다.
+                if (timeElapsed < cfgFarmingTime) {
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        if (p.getGameMode() == GameMode.SURVIVAL && isSurvivingParticipant(p)) {
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 300, 0, false, false, false));
+                        }
+                    }
+                }
+
                 int survivorCount = getSurvivorCount();
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     if (p.getGameMode() == GameMode.SPECTATOR) {
@@ -1258,6 +1302,11 @@ public class Main extends JavaPlugin implements Listener {
 
                 if (!pvpActivated && timeElapsed >= cfgFarmingTime) {
                     pvpActivated = true;
+                    // 파밍이 끝나면 야간투시를 즉시 걷어냅니다. 깜빡임 방지를 위해 길게(15초)
+                    // 갱신해 왔으므로, 자연 만료를 기다리면 전투 초반까지 남습니다.
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        p.removePotionEffect(PotionEffectType.NIGHT_VISION);
+                    }
                     if (gameWorld != null) {
                         GameRules.setPvp(gameWorld, true);
                         // 단위를 반드시 명시할 것. WorldBorder.changeSize()의 두 번째 인자는
@@ -1383,6 +1432,23 @@ public class Main extends JavaPlugin implements Listener {
         Bukkit.broadcastMessage(ChatColor.GOLD + "========================================");
         Bukkit.broadcastMessage("");
         stopGameForce();
+    }
+
+    /**
+     * 평화 파밍 시간 동안 생존 참가자는 무적입니다.
+     *
+     * PVP Off는 "공격 주체가 플레이어인 대미지"만 차단합니다. 몬스터·낙하·용암·익사·
+     * 선인장 등 비-플레이어 대미지는 그대로 들어와 "파밍 중엔 안 죽는다"는 규칙에 구멍이
+     * 있었습니다. 전투 시작(timeElapsed >= cfgFarmingTime) 전까지는 생존 참가자에게 들어오는
+     * 모든 대미지를 취소합니다. HIGHEST로 두어 다른 핸들러가 되돌리지 못하게 합니다.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onFarmingInvulnerability(EntityDamageEvent event) {
+        if (!isGameStarted) return;
+        if (timeElapsed >= cfgFarmingTime) return;
+        if (!(event.getEntity() instanceof Player p)) return;
+        if (!isSurvivingParticipant(p)) return;
+        event.setCancelled(true);
     }
 
     @EventHandler

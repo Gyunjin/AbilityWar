@@ -207,7 +207,10 @@ public class Maugaability implements Ability {
         if (slowRemovalTask != null) slowRemovalTask.cancel();
         slowRemovalTask = plugin.getServer().getScheduler().runTaskLater(plugin, () -> removeSlow(p), COOLDOWN_MS / 50);
 
-        final Vector direction = p.getLocation().getDirection().normalize();
+        // 대쉬 방향은 시선(yaw) 기준 수평 성분만 씁니다. 위/아래를 봐도 하늘로 날거나
+        // 땅으로 파고들지 않도록 y를 배제합니다(발이 땅에 붙어 있어야 함).
+        double yaw = Math.toRadians(p.getLocation().getYaw());
+        final Vector direction = new Vector(-Math.sin(yaw), 0, Math.cos(yaw)); // 단위 길이 수평 벡터
         p.sendMessage(ChatColor.RED + "돌진! " + ChatColor.GRAY + "(좌클릭으로 즉시 폭발)");
 
         dashTask = plugin.getServer().getScheduler().runTaskTimer(plugin, new Runnable() {
@@ -221,17 +224,15 @@ public class Maugaability implements Ability {
                 }
                 ticks++;
 
-                // 매 틱 속도를 다시 주지 않으면 마찰로 즉시 감속합니다.
-                p.setVelocity(direction.clone().multiply(DASH_SPEED));
+                // 매 틱 수평 속도를 다시 줍니다. 수직 속도는 플레이어의 자연 낙하값을
+                // 유지해 비행을 막습니다(절벽에선 그대로 떨어지고 평지에선 땅에 붙습니다).
+                Vector v = direction.clone().multiply(DASH_SPEED);
+                v.setY(p.getVelocity().getY());
+                p.setVelocity(v);
                 p.getWorld().spawnParticle(Particle.CLOUD, p.getLocation(), 6, 0.3, 0.3, 0.3, 0.02);
 
-                // 종료 조건 1: 벽 충돌 - 다음 틱 위치가 통과 불가면
-                Location next = p.getLocation().add(direction.clone().multiply(DASH_SPEED));
-                if (!next.getBlock().isPassable()) {
-                    endDash(p);
-                    return;
-                }
-                // 종료 조건 2: 3초 경과
+                // 종료 조건: 3초 경과뿐입니다. 벽에 부딪혀도 멈추지 않습니다 -
+                // 좌클릭 폭발이 아니면 대쉬 시간 3초를 무조건 유지합니다(짧은 대쉬 불가).
                 if (ticks >= DASH_MAX_TICKS) {
                     endDash(p);
                 }

@@ -26,6 +26,27 @@ public class SupplyDropEvent implements GameEvent {
     private static final int GUARD_COUNT = 3;
     private final Random random = new Random();
 
+    /**
+     * 보급 투하 on/off 스위치(/게임설정 보급투하). static인 이유: GameEventManager가
+     * 이벤트 인스턴스를 직접 만들어 갖고 있어 Main의 설정을 주입할 통로가 없고,
+     * 서버 전역 토글이라 Cooldown.disabled와 같은 방식을 씁니다.
+     */
+    private static volatile boolean enabled = true;
+
+    public static void setEnabled(boolean value) {
+        enabled = value;
+    }
+
+    public static boolean isEnabled() {
+        return enabled;
+    }
+
+    /** 꺼져 있으면 추첨 후보에서 빠집니다. */
+    @Override
+    public boolean canRun(GameContext ctx) {
+        return enabled;
+    }
+
     @Override
     public String getName() {
         return "보급 투하";

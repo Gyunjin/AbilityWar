@@ -118,7 +118,10 @@ public class Hulkability implements Ability {
     @Override
     public void onEntityDamage(Player p, EntityDamageEvent event) {
         if (event.getCause() != EntityDamageEvent.DamageCause.FALL) return;
-        if (fallDamageImmune) {
+        // waitingForLanding도 함께 봅니다: 착지 시 FALL 이벤트가 performSlam(면역 유지 담당)
+        // 보다 먼저 오는 타이밍이 있어, 면역 플래그만으로는 한 틱 놓쳐 자기 슬램 낙하대미지를
+        // 맞을 수 있었습니다. 점프~착지 구간 전체를 확실히 덮습니다.
+        if (fallDamageImmune || waitingForLanding) {
             event.setCancelled(true);
         }
     }
@@ -135,7 +138,7 @@ public class Hulkability implements Ability {
             public void run() {
                 fallDamageImmune = false;
             }
-        }.runTaskLater(JavaPlugin.getProvidingPlugin(Hulkability.class), 3L);
+        }.runTaskLater(JavaPlugin.getProvidingPlugin(Hulkability.class), 10L);
 
         p.getWorld().playSound(loc, Sound.ENTITY_IRON_GOLEM_ATTACK, 1.5f, 0.6f);
         p.getWorld().playSound(loc, Sound.BLOCK_STONE_BREAK, 1.5f, 0.5f);

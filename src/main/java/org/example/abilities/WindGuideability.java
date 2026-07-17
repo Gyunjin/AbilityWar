@@ -9,6 +9,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
 /**
@@ -126,7 +127,13 @@ public class WindGuideability implements Ability {
         if (away.lengthSquared() < 1.0e-6) return; // 그것도 불가능하면 포기
 
         away.normalize().multiply(PUSH_HORIZONTAL);
-        victim.setVelocity(new Vector(away.getX(), PUSH_UP, away.getZ()));
+        final Vector push = new Vector(away.getX(), PUSH_UP, away.getZ());
+        // 밀치기를 다음 틱에 적용합니다. 타격의 바닐라 넉백이 같은 틱의 setVelocity를
+        // 덮어써서 밀치기가 전혀 안 먹히던 문제를 피합니다.
+        JavaPlugin plugin = JavaPlugin.getProvidingPlugin(getClass());
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (victim.isValid()) victim.setVelocity(push);
+        });
         attacker.getWorld().playSound(attacker.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 1.0f, 1.0f);
     }
 }

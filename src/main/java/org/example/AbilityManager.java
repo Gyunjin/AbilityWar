@@ -28,6 +28,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.example.abilities.Ability;
 import org.example.abilities.AbilityItems;
 import org.example.abilities.AbilityRegistry;
+import org.example.abilities.Reincarnatorability;
 import org.example.abilities.Vanish;
 import org.example.game.AbilityAssigner;
 
@@ -195,6 +196,9 @@ public class AbilityManager implements Listener, CommandExecutor {
         p.removePotionEffect(PotionEffectType.INVISIBILITY);
         // 능력이 없는데 은신 상태로 남아 있으면 잔재입니다.
         Vanish.show(plugin, p);
+        // 윤회자는 무한 지속 효과와 AttributeModifier를 겁니다. 오프라인 중 능력이
+        // 정리됐다면 여기가 유일한 복구 지점입니다(기존 최대체력 정리와 같은 이유).
+        Reincarnatorability.cleanupResidue(p);
     }
 
     /** 능력 아이템(귀속 무기)은 실수로든 의도적으로든 버릴 수 없도록 막습니다. */

@@ -28,7 +28,9 @@ public class GameEventManager {
     private static final List<Supplier<GameEvent>> EVENTS = List.of(
             SupplyDropEvent::new,
             NightRushEvent::new,
-            AbilityRechargeEvent::new);
+            AbilityRechargeEvent::new,
+            GlowingEvent::new,
+            BountyEvent::new);
 
     private final JavaPlugin plugin;
     private final Random random = new Random();

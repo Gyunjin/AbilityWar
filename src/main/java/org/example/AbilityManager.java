@@ -27,6 +27,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.example.abilities.Ability;
 import org.example.abilities.AbilityItems;
 import org.example.abilities.AbilityRegistry;
+import org.example.abilities.Vanish;
 import org.example.game.AbilityAssigner;
 
 import java.util.ArrayList;
@@ -180,12 +181,19 @@ public class AbilityManager implements Listener, CommandExecutor {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player p = event.getPlayer();
+
+        // 은신 중인 다른 플레이어를 이 접속자에게도 숨깁니다. 이게 없으면 방금 들어온
+        // 사람 눈에만 은신자가 보입니다. 능력 보유 여부와 무관하므로 조기 반환보다 앞에 둡니다.
+        Vanish.reapplyFor(plugin, p);
+
         if (playerAbilities.containsKey(p.getUniqueId())) return; // 능력 보유 중이면 정상 상태
 
         PlayerStats.resetMaxHealth(p);
         // 티모의 투명화는 스스로 만료되지만, 이전 버전에서 무한 지속시간으로 걸려
         // 저장돼 있던 플레이어를 위해 여기서도 확실히 정리합니다.
         p.removePotionEffect(PotionEffectType.INVISIBILITY);
+        // 능력이 없는데 은신 상태로 남아 있으면 잔재입니다.
+        Vanish.show(plugin, p);
     }
 
     /** 능력 아이템(귀속 무기)은 실수로든 의도적으로든 버릴 수 없도록 막습니다. */

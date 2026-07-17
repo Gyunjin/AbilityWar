@@ -26,9 +26,12 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
 import org.example.abilities.Ability;
 import org.example.abilities.AbilityRegistry;
+import org.example.game.AbilityAssigner;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
@@ -72,23 +75,37 @@ public class AbilityManager implements Listener, CommandExecutor {
 
     /** 게임 시작 시 호출. 아직 능력이 없는 플레이어에게만 무작위 배정합니다. */
     public void assignAbilitiesIfNone(Collection<? extends Player> players) {
-        Random random = new Random();
+        // 능력이 없는 플레이어를 먼저 모읍니다. 이들에게만 중복 없이 배정합니다.
+        List<Player> needAbility = new ArrayList<>();
+        for (Player p : players) {
+            if (!playerAbilities.containsKey(p.getUniqueId())) {
+                needAbility.add(p);
+            }
+        }
+
+        List<String> assigned = AbilityAssigner.assign(
+                List.of(AbilityRegistry.getNames()), needAbility.size(), new Random());
+
+        for (int i = 0; i < needAbility.size(); i++) {
+            Player p = needAbility.get(i);
+            Ability ability = AbilityRegistry.create(assigned.get(i));
+            if (ability == null) continue;
+            playerAbilities.put(p.getUniqueId(), ability);
+            ability.onGrant(p, false);
+        }
+
+        // 이미 능력이 있는 플레이어는 같은 능력으로 새 인스턴스를 만들어 초기화한 뒤
+        // 장비만 재지급합니다. 기존 인스턴스를 그대로 쓰면 소환물·쿨타임 상태가 남습니다.
         for (Player p : players) {
             Ability existing = playerAbilities.get(p.getUniqueId());
-            if (existing == null) {
-                Ability ability = AbilityRegistry.create(AbilityRegistry.randomName(random));
-                playerAbilities.put(p.getUniqueId(), ability);
-                ability.onGrant(p, false);
-            } else {
-                // 게임 시작 시 기존 인스턴스를 그대로 쓰면 소환물·쿨타임 등 상태가 남습니다.
-                // 같은 능력 이름으로 새 인스턴스를 만들어 초기화한 뒤 장비만 재지급합니다.
-                String abilityName = existing.getName();
-                existing.onRevoke(p);
-                Ability fresh = AbilityRegistry.create(abilityName);
-                if (fresh != null) {
-                    playerAbilities.put(p.getUniqueId(), fresh);
-                    fresh.onGrant(p, true);
-                }
+            if (existing == null || needAbility.contains(p)) continue;
+
+            String abilityName = existing.getName();
+            existing.onRevoke(p);
+            Ability fresh = AbilityRegistry.create(abilityName);
+            if (fresh != null) {
+                playerAbilities.put(p.getUniqueId(), fresh);
+                fresh.onGrant(p, true);
             }
         }
     }

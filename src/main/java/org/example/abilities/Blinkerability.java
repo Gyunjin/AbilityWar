@@ -35,19 +35,9 @@ public class Blinkerability implements Ability {
         cooldown.reset();
     }
 
-    private ItemStack createItem() {
-        ItemStack item = new ItemStack(Material.NETHER_STAR);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.AQUA + ITEM_TAG);
-            item.setItemMeta(meta);
-        }
-        return item;
-    }
-
     @Override
     public void onGrant(Player p, boolean isReGrant) {
-        p.getInventory().addItem(createItem());
+        p.getInventory().addItem(AbilityItems.create(Material.NETHER_STAR, ChatColor.AQUA, ITEM_TAG));
         if (!isReGrant) {
             p.sendMessage("");
             p.sendMessage(ChatColor.GOLD + "========================================");
@@ -74,9 +64,7 @@ public class Blinkerability implements Ability {
         // 대쉬가 성공한 직후 보조손 패스가 다시 들어와 쿨타임 안내 메시지가 매번 떴습니다.
         if (event.getHand() != EquipmentSlot.HAND) return;
 
-        ItemStack item = p.getInventory().getItemInMainHand();
-        if (item.getType() != Material.NETHER_STAR || !item.hasItemMeta()) return;
-        if (!item.getItemMeta().hasDisplayName() || !item.getItemMeta().getDisplayName().contains(ITEM_TAG)) return;
+        if (!AbilityItems.isHolding(p, Material.NETHER_STAR, ITEM_TAG)) return;
 
         // 다른 능력들과 달리 블링커만 이벤트를 취소하지 않아, 네더의 별 우클릭이
         // 바닐라 동작으로도 처리되고 있었습니다.

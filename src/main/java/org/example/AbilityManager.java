@@ -25,6 +25,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
 import org.example.abilities.Ability;
+import org.example.abilities.AbilityItems;
 import org.example.abilities.AbilityRegistry;
 import org.example.game.AbilityAssigner;
 
@@ -162,10 +163,9 @@ public class AbilityManager implements Listener, CommandExecutor {
         }
     }
 
-    /** 능력 아이템(태그 "[능력]")인지 확인합니다. 귀속 아이템 판정에 공용으로 사용합니다. */
+    /** 능력 아이템(태그 "[능력]")인지 확인합니다. 판정 로직은 AbilityItems가 갖고 있습니다. */
     private boolean isBoundItem(ItemStack item) {
-        return item != null && item.hasItemMeta() && item.getItemMeta().hasDisplayName()
-                && item.getItemMeta().getDisplayName().contains("[능력]");
+        return AbilityItems.isBound(item);
     }
 
     /**

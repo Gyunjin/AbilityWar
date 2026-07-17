@@ -69,20 +69,10 @@ public class Teemoability implements Ability {
         cooldown.reset();
     }
 
-    private ItemStack createItem() {
-        ItemStack item = new ItemStack(Material.BLAZE_ROD);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.GREEN + ITEM_TAG);
-            item.setItemMeta(meta);
-        }
-        return item;
-    }
-
     @Override
     public void onGrant(Player p, boolean isReGrant) {
         this.ownerUuid = p.getUniqueId();
-        p.getInventory().addItem(createItem());
+        p.getInventory().addItem(AbilityItems.create(Material.BLAZE_ROD, ChatColor.GREEN, ITEM_TAG));
 
         if (plugin == null) {
             plugin = JavaPlugin.getProvidingPlugin(getClass());
@@ -120,19 +110,12 @@ public class Teemoability implements Ability {
         }
     }
 
-    private boolean isHoldingBlowgun(Player p) {
-        ItemStack main = p.getInventory().getItemInMainHand();
-        return main.getType() == Material.BLAZE_ROD && main.hasItemMeta()
-                && main.getItemMeta().hasDisplayName()
-                && main.getItemMeta().getDisplayName().contains(ITEM_TAG);
-    }
-
     @Override
     public void onInteract(Player p, PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         // 우클릭 한 번에 이벤트가 주손/보조손 두 번 발생하므로 주손만 처리합니다.
         if (event.getHand() != EquipmentSlot.HAND) return;
-        if (!isHoldingBlowgun(p)) return;
+        if (!AbilityItems.isHolding(p, Material.BLAZE_ROD, ITEM_TAG)) return;
 
         event.setCancelled(true);
 

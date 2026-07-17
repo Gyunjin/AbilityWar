@@ -47,6 +47,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import org.example.abilities.AbilityItems;
 import org.example.events.EventSpawnCleanupListener;
 import org.example.events.EventSpawns;
 import org.example.events.GameContext;
@@ -391,10 +392,9 @@ public class Main extends JavaPlugin implements Listener {
         clearPendingLobbyChanges();
     }
 
-    /** 능력 아이템(귀속 장비, "[능력]" 태그)인지 확인합니다. 사망 드랍 방지 등에 공용으로 사용합니다. */
+    /** 능력 아이템(귀속 장비, "[능력]" 태그)인지 확인합니다. 판정 로직은 AbilityItems가 갖고 있습니다. */
     private boolean isBoundItem(ItemStack item) {
-        return item != null && item.hasItemMeta() && item.getItemMeta().hasDisplayName()
-                && item.getItemMeta().getDisplayName().contains("[능력]");
+        return AbilityItems.isBound(item);
     }
 
     /**

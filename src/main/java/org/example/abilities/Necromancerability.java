@@ -70,10 +70,9 @@ public class Necromancerability implements Ability {
     }
 
     private ItemStack createItem() {
-        ItemStack item = new ItemStack(Material.BONE);
+        ItemStack item = AbilityItems.create(Material.BONE, ChatColor.DARK_RED, ITEM_TAG);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(ChatColor.DARK_RED + ITEM_TAG);
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + "우클릭 시 주인을 따르고 적을 공격하는 사령 좀비 3마리를 부립니다.");
             lore.add(ChatColor.GRAY + "지팡이를 들고 있으면 멀리 떨어진 소환수들이 주인 쪽으로 다가옵니다.");
@@ -170,7 +169,7 @@ public class Necromancerability implements Ability {
     @Override
     public void onPassiveTick(Player p) {
         if (summons.isEmpty()) return;
-        if (!isHoldingStaff(p)) return;
+        if (!AbilityItems.isHolding(p, Material.BONE, ITEM_TAG)) return;
 
         Location ownerLoc = p.getLocation();
         double triggerDistSq = FOLLOW_TRIGGER_DISTANCE * FOLLOW_TRIGGER_DISTANCE;
@@ -185,19 +184,12 @@ public class Necromancerability implements Ability {
         }
     }
 
-    private boolean isHoldingStaff(Player p) {
-        ItemStack item = p.getInventory().getItemInMainHand();
-        return item.getType() == Material.BONE && item.hasItemMeta()
-                && item.getItemMeta().hasDisplayName()
-                && item.getItemMeta().getDisplayName().contains(ITEM_TAG);
-    }
-
     @Override
     public void onInteract(Player p, PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         // 우클릭 한 번에 이벤트가 주손/보조손 두 번 발생하므로 주손만 처리합니다.
         if (event.getHand() != EquipmentSlot.HAND) return;
-        if (!isHoldingStaff(p)) return;
+        if (!AbilityItems.isHolding(p, Material.BONE, ITEM_TAG)) return;
 
         event.setCancelled(true);
 

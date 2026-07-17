@@ -55,21 +55,11 @@ public class Hulkability implements Ability {
         cooldown.reset();
     }
 
-    private ItemStack createItem() {
-        ItemStack item = new ItemStack(Material.COBBLESTONE);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.RED + ITEM_TAG);
-            item.setItemMeta(meta);
-        }
-        return item;
-    }
-
     @Override
     public void onGrant(Player p, boolean isReGrant) {
         PlayerStats.setMaxHealth(p, MAX_HEALTH);
         p.setHealth(MAX_HEALTH);
-        p.getInventory().addItem(createItem());
+        p.getInventory().addItem(AbilityItems.create(Material.COBBLESTONE, ChatColor.RED, ITEM_TAG));
 
         if (!isReGrant) {
             p.sendMessage("");
@@ -94,19 +84,12 @@ public class Hulkability implements Ability {
         PlayerStats.resetMaxHealth(p);
     }
 
-    private boolean isHoldingGauntlet(Player p) {
-        ItemStack main = p.getInventory().getItemInMainHand();
-        return main.getType() == Material.COBBLESTONE && main.hasItemMeta()
-                && main.getItemMeta().hasDisplayName()
-                && main.getItemMeta().getDisplayName().contains(ITEM_TAG);
-    }
-
     @Override
     public void onInteract(Player p, PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         // 우클릭 한 번에 이벤트가 주손/보조손 두 번 발생하므로 주손만 처리합니다.
         if (event.getHand() != EquipmentSlot.HAND) return;
-        if (!isHoldingGauntlet(p)) return;
+        if (!AbilityItems.isHolding(p, Material.COBBLESTONE, ITEM_TAG)) return;
 
         event.setCancelled(true);
 

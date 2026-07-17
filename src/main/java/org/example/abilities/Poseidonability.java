@@ -33,10 +33,9 @@ public class Poseidonability implements Ability {
 
     @SuppressWarnings("removal")
     private ItemStack createItem() {
-        ItemStack item = new ItemStack(Material.TRIDENT);
+        ItemStack item = AbilityItems.create(Material.TRIDENT, ChatColor.BLUE, ITEM_TAG);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(ChatColor.BLUE + ITEM_TAG);
             meta.setUnbreakable(true);
 
             // 삼지창 기본 공격력(바닐라 기준 9)을 완전히 상쇄시켜, 급류로 날아오르는

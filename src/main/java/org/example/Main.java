@@ -974,6 +974,23 @@ public class Main extends JavaPlugin implements Listener {
         startTimer();
     }
 
+    /**
+     * 파밍이 끝나는 순간 이번 판에 등장한 능력의 "이름만" 공개합니다.
+     * 누가 무엇을 가졌는지는 알리지 않습니다. 사망 시 공개(onPlayerDeath)와 맞물려
+     * 소거법이 성립하고, 그것이 후반 교전의 긴장을 만듭니다.
+     */
+    private void revealAbilityLineup() {
+        List<String> names = abilityManager.getAssignedAbilityNames();
+        if (names.isEmpty()) return;
+
+        Bukkit.broadcastMessage("");
+        Bukkit.broadcastMessage(ChatColor.GOLD + "========== [ 이번 판 등장 능력 ] ==========");
+        Bukkit.broadcastMessage(ChatColor.AQUA + "  " + String.join(ChatColor.GRAY + " · " + ChatColor.AQUA, names));
+        Bukkit.broadcastMessage(ChatColor.GRAY + "  (누가 어떤 능력인지는 공개되지 않습니다)");
+        Bukkit.broadcastMessage(ChatColor.GOLD + "==========================================");
+        Bukkit.broadcastMessage("");
+    }
+
     // 전체 플레이어의 능력을 채팅창에 공개하는 프라이빗 메서드
     private void revealAllAbilities() {
         Bukkit.broadcastMessage("");
@@ -1156,6 +1173,7 @@ public class Main extends JavaPlugin implements Listener {
                     borderShrinking = true;
                     Bukkit.broadcastMessage(ChatColor.RED + "[능력자] 파밍 시간이 종료되었습니다! PVP가 활성화되며, "
                             + cfgCombatTime + "초에 걸쳐 자기장이 서서히 " + (int) cfgFinalBorderSize + "x" + (int) cfgFinalBorderSize + "(으)로 축소됩니다!");
+                    revealAbilityLineup();
                 }
 
                 if (borderShrinking && timeElapsed >= cfgFarmingTime + cfgCombatTime) {
@@ -1292,6 +1310,15 @@ public class Main extends JavaPlugin implements Listener {
         Player killer = deadPlayer.getKiller();
         if (killer != null) {
             killCounts.merge(killer.getUniqueId(), 1, Integer::sum);
+        }
+
+        // 사망자의 능력을 공개합니다. 파밍 종료 시 공개된 등장 능력 목록과 맞물려
+        // 남은 사람의 능력을 소거법으로 좁힐 수 있게 됩니다.
+        String deadAbility = abilityManager.getPlayerAbilityName(deadPlayer.getUniqueId());
+        if (deadAbility != null && !deadAbility.isEmpty()) {
+            Bukkit.broadcastMessage(ChatColor.GRAY + "☠ " + ChatColor.WHITE + deadPlayer.getName()
+                    + ChatColor.GRAY + " 님의 능력은 " + ChatColor.AQUA + "[" + deadAbility + "]"
+                    + ChatColor.GRAY + " 이었습니다.");
         }
 
         new BukkitRunnable() {

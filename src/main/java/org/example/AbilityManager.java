@@ -30,6 +30,7 @@ import org.example.game.AbilityAssigner;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -64,6 +65,16 @@ public class AbilityManager implements Listener, CommandExecutor {
     public String getPlayerAbilityName(UUID uuid) {
         Ability a = playerAbilities.get(uuid);
         return a == null ? null : a.getName();
+    }
+
+    /** 이번 게임에 배정된 능력 이름 목록(정렬). 파밍 종료 시 등장 능력 공개에 씁니다. */
+    public List<String> getAssignedAbilityNames() {
+        List<String> names = new ArrayList<>();
+        for (Ability a : playerAbilities.values()) {
+            names.add(a.getName());
+        }
+        Collections.sort(names);
+        return names;
     }
 
     /** 게임 종료/초기화 시 호출. 모든 플레이어의 능력을 원상복구하고 목록을 비웁니다. */

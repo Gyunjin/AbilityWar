@@ -1,6 +1,5 @@
 package org.example.events;
 
-import org.bukkit.Chunk;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -8,9 +7,11 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -35,7 +36,7 @@ public class SupplyDropEvent implements GameEvent {
         World world = ctx.getWorld();
         if (world == null) return;
 
-        Location loc = randomLocationInBorder(world);
+        Location loc = randomLocationInBorder(world, ctx);
         if (loc == null) return;
 
         Block block = loc.getBlock();
@@ -64,25 +65,75 @@ public class SupplyDropEvent implements GameEvent {
                         + ChatColor.GRAY + " 에 보급 상자가 떨어졌습니다. 사령들이 지키고 있습니다.");
     }
 
+    private static final int MAX_CANDIDATES = 12;
+
     /**
      * 현재 자기장 크기 안쪽의 무작위 지면 좌표를 고릅니다.
      * 자기장은 (0,0) 중심이므로 크기의 절반이 반경입니다. 축소가 진행 중이면
      * 그 시점의 실제 크기를 쓰므로 후반에는 중앙 근처에만 뜹니다.
+     *
+     * world.getChunkAt()은 청크가 없으면 그 자리에서 동기 생성을 해버려 메인 스레드가
+     * 멈춥니다. 반경이 최대 200(400x400)이라 초반에는 미탐사 지역에 꽂힐 확률이 높으므로,
+     * isChunkGenerated로 생성 여부만 확인하고(생성은 트리거하지 않음) 안 된 곳은 후보에서
+     * 제외합니다. 여러 번 실패하면 생존자 근처(청크 로드가 보장됨)로 대체합니다.
      */
-    private Location randomLocationInBorder(World world) {
+    private Location randomLocationInBorder(World world, GameContext ctx) {
         double radius = world.getWorldBorder().getSize() / 2.0;
         if (radius > 200) radius = 200; // 초반 자기장이 너무 크면 아무도 못 감
 
-        double x = (random.nextDouble() * 2 - 1) * radius;
-        double z = (random.nextDouble() * 2 - 1) * radius;
+        for (int i = 0; i < MAX_CANDIDATES; i++) {
+            double x = (random.nextDouble() * 2 - 1) * radius;
+            double z = (random.nextDouble() * 2 - 1) * radius;
 
-        // 청크를 먼저 로드해야 getHighestBlockYAt이 정확한 높이를 돌려줍니다.
-        Chunk chunk = world.getChunkAt((int) x >> 4, (int) z >> 4);
-        if (!chunk.isLoaded()) chunk.load(true);
+            Location candidate = groundLocationIfSafe(world, x, z);
+            if (candidate != null) return candidate;
+        }
 
-        int y = world.getHighestBlockYAt((int) x, (int) z);
+        // 유효한 후보를 못 찾았으면 생존자 근처로 대체합니다. 이벤트 슬롯을 그냥 버리는
+        // 것보다 상자가 조금 가까이 떨어지는 편이 낫습니다.
+        List<Player> survivors = ctx.getSurvivors();
+        if (survivors.isEmpty()) return null;
+
+        Player anchor = survivors.get(random.nextInt(survivors.size()));
+        Location base = anchor.getLocation();
+        for (int i = 0; i < MAX_CANDIDATES; i++) {
+            double x = base.getX() + (random.nextDouble() * 2 - 1) * 16;
+            double z = base.getZ() + (random.nextDouble() * 2 - 1) * 16;
+
+            Location candidate = groundLocationIfSafe(world, x, z);
+            if (candidate != null) return candidate;
+        }
+
+        // 플레이어 청크는 항상 로드되어 있으므로 최소한 플레이어 발밑은 안전한 후보입니다.
+        int y = world.getHighestBlockYAt(base.getBlockX(), base.getBlockZ());
+        return new Location(world, base.getBlockX(), y + 1, base.getBlockZ());
+    }
+
+    /**
+     * 주어진 x, z가 이미 생성된 청크이고, 상자를 놓을 자리가 용암/액체나 지형 속이
+     * 아니면 배치 가능한 좌표를 반환합니다. 그렇지 않으면 null을 반환해 다음 후보를
+     * 시도하게 합니다.
+     */
+    private Location groundLocationIfSafe(World world, double x, double z) {
+        int chunkX = (int) x >> 4;
+        int chunkZ = (int) z >> 4;
+        if (!world.isChunkGenerated(chunkX, chunkZ)) return null;
+
+        int bx = (int) Math.floor(x);
+        int bz = (int) Math.floor(z);
+        int y = world.getHighestBlockYAt(bx, bz);
         if (y <= 0) return null;
 
-        return new Location(world, Math.floor(x), y + 1, Math.floor(z));
+        // getHighestBlockYAt은 그냥 최상단 블록이라 용암 표면이나 나뭇잎 위일 수 있습니다.
+        // 바닥은 단단해야 하고, 상자가 들어갈 자리와 그 위 칸은 비어 있어야 합니다.
+        Block ground = world.getBlockAt(bx, y, bz);
+        if (ground.isPassable() || ground.isLiquid()) return null;
+
+        Block chestSpot = world.getBlockAt(bx, y + 1, bz);
+        Block above = world.getBlockAt(bx, y + 2, bz);
+        if (!chestSpot.isPassable() || chestSpot.isLiquid()) return null;
+        if (!above.isPassable() || above.isLiquid()) return null;
+
+        return new Location(world, bx, y + 1, bz);
     }
 }

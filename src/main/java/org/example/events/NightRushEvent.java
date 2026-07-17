@@ -2,6 +2,7 @@ package org.example.events;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
@@ -31,14 +32,27 @@ public class NightRushEvent implements GameEvent {
         ctx.getWorld().setTime(NIGHT_TIME);
 
         for (Player p : ctx.getSurvivors()) {
+            World world = p.getWorld();
+            Location base = p.getLocation();
+
             for (int i = 0; i < PER_PLAYER; i++) {
                 double dx = (random.nextDouble() * 2 - 1) * SPAWN_RADIUS;
                 double dz = (random.nextDouble() * 2 - 1) * SPAWN_RADIUS;
-                Location spawn = p.getLocation().clone().add(dx, 0, dz);
+                int x = base.getBlockX() + (int) Math.floor(dx);
+                int z = base.getBlockZ() + (int) Math.floor(dz);
 
-                Zombie z = (Zombie) p.getWorld().spawnEntity(spawn, EntityType.ZOMBIE);
-                z.setAdult();
-                EventSpawns.tag(z, ctx.getPlugin());
+                // 플레이어의 Y를 그대로 재사용하면 울퉁불퉁한 지형에서 좀비가 블록
+                // 속에 파묻혀 스폰되어 즉시 질식사합니다. 근처 청크는 항상 로드되어
+                // 있어야 하며, 혹시 아니라면(청크 언로드 경합 등) 생성을 트리거하지
+                // 않도록 이 좀비 스폰만 건너뜁니다.
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
+
+                int y = world.getHighestBlockYAt(x, z);
+                Location spawn = new Location(world, x + 0.5, y + 1, z + 0.5);
+
+                Zombie z2 = (Zombie) world.spawnEntity(spawn, EntityType.ZOMBIE);
+                z2.setAdult();
+                EventSpawns.tag(z2, ctx.getPlugin());
             }
         }
 

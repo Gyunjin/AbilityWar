@@ -25,7 +25,10 @@ import java.util.function.Supplier;
 public class GameEventManager {
 
     /** ★ 새 이벤트는 여기에 한 줄만 추가하면 됩니다. */
-    private static final List<Supplier<GameEvent>> EVENTS = List.of();
+    private static final List<Supplier<GameEvent>> EVENTS = List.of(
+            SupplyDropEvent::new,
+            NightRushEvent::new,
+            AbilityRechargeEvent::new);
 
     private final JavaPlugin plugin;
     private final Random random = new Random();

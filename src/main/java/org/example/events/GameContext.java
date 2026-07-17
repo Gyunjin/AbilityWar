@@ -27,19 +27,33 @@ public final class GameContext {
     /** 이벤트가 실제 게임 상태를 몰래 변형(예: clear)하지 못하도록 불변 복사본을 보관합니다. */
     private final Map<UUID, Integer> kills;
     private final AbilityManager abilityManager;
+    /** 이번 판을 식별하는 번호. 이벤트 스폰물 표식에 박아 판 사이 잔존물을 구분합니다. */
+    private final int eventSessionId;
 
     public GameContext(JavaPlugin plugin, World world, List<Player> survivors,
-                       boolean farming, Map<UUID, Integer> kills, AbilityManager abilityManager) {
+                       boolean farming, Map<UUID, Integer> kills, AbilityManager abilityManager,
+                       int eventSessionId) {
         this.plugin = plugin;
         this.world = world;
         this.survivors = List.copyOf(survivors);
         this.farming = farming;
         this.kills = Map.copyOf(kills);
         this.abilityManager = abilityManager;
+        this.eventSessionId = eventSessionId;
     }
 
     public JavaPlugin getPlugin() {
         return plugin;
+    }
+
+    /**
+     * 이번 판의 세션 id. EventSpawns.tag()에 넘깁니다.
+     *
+     * Main에서 직접 꺼내지 않고 여기로 실어 나르는 이유: 이벤트가 구체 타입 Main에
+     * 의존하기 시작하면(캐스팅) 이 클래스를 둔 의미가 없어집니다.
+     */
+    public int getEventSessionId() {
+        return eventSessionId;
     }
 
     /** '능력 재충전' 이벤트가 쿨타임 초기화를 위임하는 데 씁니다. */

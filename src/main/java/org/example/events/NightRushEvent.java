@@ -58,7 +58,7 @@ public class NightRushEvent implements GameEvent {
 
                 Zombie z2 = (Zombie) world.spawnEntity(spawn, EntityType.ZOMBIE);
                 z2.setAdult();
-                EventSpawns.tag(z2, ctx.getPlugin());
+                EventSpawns.tag(z2, ctx.getPlugin(), ctx.getEventSessionId());
             }
         }
 

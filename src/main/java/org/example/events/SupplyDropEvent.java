@@ -60,7 +60,7 @@ public class SupplyDropEvent implements GameEvent {
                 guard.getEquipment().setHelmet(new ItemStack(Material.IRON_HELMET));
                 guard.getEquipment().setItemInMainHand(new ItemStack(Material.IRON_SWORD));
             }
-            EventSpawns.tag(guard, ctx.getPlugin());
+            EventSpawns.tag(guard, ctx.getPlugin(), ctx.getEventSessionId());
         }
 
         GameEventManager.announce("보급 투하",

@@ -30,13 +30,20 @@ public class EventSpawnCleanupListener implements Listener {
 
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
-        // 게임 중에는 절대 건드리지 않습니다. 이벤트 몹은 게임 중에 살아있는 것이
-        // 정상이고, 여기서 지우면 플레이어가 이동해 청크가 로드될 때마다 방금 스폰된
-        // 몹이 사라집니다.
-        if (plugin.isGameStarted()) return;
-
+        // 게임 상태 가드(isGameStarted)를 쓰지 않는 이유:
+        //
+        // 예전에는 "게임 중이면 return"으로 이번 판 몹을 보호했습니다. 그런데 멀리 있는
+        // 청크는 플레이어가 흩어지는 게임 중에만 로드됩니다. 즉 이 리스너가 정작 일해야
+        // 할 바로 그 순간에 항상 조기 return 했습니다. 판과 판 사이에는 모두가 스폰에
+        // 모여 있어 그 청크들이 아예 로드되지 않으므로, 1판의 이벤트 좀비가 무장한 채
+        // 2판, 3판까지 살아남았습니다.
+        //
+        // 이제 표식에 세션 id가 들어 있어 게임 상태를 볼 필요가 없습니다. 이번 판 id와
+        // 다른 것만 지우므로 게임 중에 청크가 로드돼도 방금 스폰된 몹은 안전합니다.
+        // 가드를 되살리지 마세요.
+        int sessionId = plugin.getEventSessionId();
         for (Entity e : event.getChunk().getEntities()) {
-            if (EventSpawns.isTagged(e, plugin)) {
+            if (EventSpawns.isStale(e, plugin, sessionId)) {
                 e.remove();
             }
         }

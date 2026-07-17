@@ -64,6 +64,17 @@ public class Main extends JavaPlugin implements Listener {
     private Objective scoreboardObjective;
 
     /**
+     * 판을 구분하는 번호. 이벤트 스폰물 표식(PDC)에 이 값을 박아둡니다.
+     *
+     * 이게 필요한 이유: 이벤트 좀비는 대부분 멀리 떨어진(=언로드된) 청크에 있어
+     * 게임 종료 시의 sweep()에 잡히지 않고, 그 청크는 플레이어가 흩어지는 "게임 중"에만
+     * 로드됩니다. 그래서 "게임 중이면 정리하지 않는다"는 가드로는 잔당을 영영 지울 수
+     * 없었습니다(1판 좀비가 2판, 3판까지 생존). 세션 id로 식별하면 게임 상태와 무관하게
+     * 지난 판 것만 골라 지울 수 있습니다.
+     */
+    private int eventSessionId = 0;
+
+    /**
      * 게임 시작 전(대기시간) 동안 변경된 블록의 "변경되기 전" 상태를 위치별로 1개씩만 기록합니다.
      * key = "월드이름;x;y;z", value = BlockData.getAsString() (변경 전 상태)
      *
@@ -992,6 +1003,10 @@ public class Main extends JavaPlugin implements Listener {
         abilityManager.assignAbilitiesIfNone(Bukkit.getOnlinePlayers());
         giveBattleMapToAll();
         gameEventManager.reset();
+        // 새 판이 시작됐음을 표식 값으로 남길 수 있도록 세션 id를 올립니다. 이 시점 이후
+        // 스폰되는 이벤트 몹은 새 id를 달고, 지난 판 id를 단 잔당은 청크가 로드되는
+        // 순간(EventSpawnCleanupListener) 제거됩니다.
+        eventSessionId++;
         startTimer();
     }
 
@@ -1216,7 +1231,7 @@ public class Main extends JavaPlugin implements Listener {
                         if (isSurvivingParticipant(p)) survivors.add(p);
                     }
                     GameContext ctx = new GameContext(Main.this, gameWorld, survivors,
-                            timeElapsed < cfgFarmingTime, killCounts, abilityManager);
+                            timeElapsed < cfgFarmingTime, killCounts, abilityManager, eventSessionId);
                     gameEventManager.tick(ctx, cfgEventInterval);
                 }
 
@@ -1448,4 +1463,7 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     public boolean isGameStarted() { return isGameStarted; }
+
+    /** 현재 판의 이벤트 세션 id. 청크 로드 정리에서 지난 판 스폰물을 구분하는 데 씁니다. */
+    public int getEventSessionId() { return eventSessionId; }
 }

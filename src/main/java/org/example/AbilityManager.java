@@ -21,6 +21,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
@@ -255,6 +256,26 @@ public class AbilityManager implements Listener, CommandExecutor {
         Player player = (Player) event.getEntity();
         Ability a = playerAbilities.get(player.getUniqueId());
         if (a != null) a.onEntityDamageByEntity(player, event);
+    }
+
+    /**
+     * 공격자 기준 근접 대미지 위임. 피격자 기준인 onAbilityDamageByEntity와는 별개이며,
+     * 플레이어가 플레이어를 때리면 두 훅이 각각 자기 능력 인스턴스로 갑니다. 의도된 동작입니다.
+     */
+    @EventHandler
+    public void onAbilityDealDamage(EntityDamageByEntityEvent event) {
+        if (!plugin.isGameStarted()) return;
+        if (!(event.getDamager() instanceof Player attacker)) return;
+        Ability a = playerAbilities.get(attacker.getUniqueId());
+        if (a != null) a.onDealMeleeDamage(attacker, event);
+    }
+
+    /** 바람 인도자의 더블 점프용. 게임 진행 중이 아니어도 위임합니다(로비에서도 비행 토글은 발생). */
+    @EventHandler
+    public void onToggleFlight(PlayerToggleFlightEvent event) {
+        Player p = event.getPlayer();
+        Ability a = playerAbilities.get(p.getUniqueId());
+        if (a != null) a.onToggleFlight(p, event);
     }
 
     @EventHandler

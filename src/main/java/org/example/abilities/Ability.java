@@ -9,6 +9,7 @@ import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
 
 /**
  * 새 능력을 추가하려면:
@@ -89,6 +90,20 @@ public interface Ability {
      * 쿨타임이 없는 능력(포세이돈)은 구현하지 않아도 됩니다.
      */
     default void resetCooldown() {}
+
+    /**
+     * 이 플레이어가 다른 엔티티를 근접 공격했을 때 호출됩니다. (공격자 기준)
+     *
+     * 기존 onEntityDamageByEntity는 "맞는 쪽"이 이 플레이어일 때만 옵니다. 신규 능력
+     * 4종(마우가 흡혈, 암살자 배율, 데스웜 습격 트리거, 바람 인도자 밀쳐냄)이 "내가 때릴 때"를
+     * 필요로 하므로 공격자 기준 훅을 따로 둡니다. 각 능력이 자기 Listener를 등록하면
+     * 같은 능력 보유자 수만큼 이벤트가 중복 처리되므로(AbilityManager 주석 참고)
+     * 여기서 위임합니다.
+     */
+    default void onDealMeleeDamage(Player attacker, EntityDamageByEntityEvent event) {}
+
+    /** 이 플레이어가 공중에서 비행 토글(스페이스 두 번)을 시도할 때 호출됩니다. */
+    default void onToggleFlight(Player p, PlayerToggleFlightEvent event) {}
 
     /**
      * 치명적인 대미지(체력이 0 이하가 되는 대미지) 발생 시 호출됩니다.

@@ -65,6 +65,11 @@ public class Necromancerability implements Ability {
         return "네크로맨서";
     }
 
+    @Override
+    public void resetCooldown() {
+        lastUsed = 0;
+    }
+
     private ItemStack createItem() {
         ItemStack item = new ItemStack(Material.BONE);
         ItemMeta meta = item.getItemMeta();

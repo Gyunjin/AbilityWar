@@ -31,6 +31,11 @@ public class Blinkerability implements Ability {
         return "블링커";
     }
 
+    @Override
+    public void resetCooldown() {
+        lastUsed = 0;
+    }
+
     private ItemStack createItem() {
         ItemStack item = new ItemStack(Material.NETHER_STAR);
         ItemMeta meta = item.getItemMeta();

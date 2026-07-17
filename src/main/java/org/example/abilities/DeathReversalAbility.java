@@ -50,6 +50,11 @@ public class DeathReversalAbility implements Ability {
     }
 
     @Override
+    public void resetCooldown() {
+        lastUsed = 0;
+    }
+
+    @Override
     public void onGrant(Player p, boolean isReGrant) {
         if (!isReGrant) {
             p.sendMessage("");

@@ -51,6 +51,11 @@ public class Hulkability implements Ability {
         return "헐크";
     }
 
+    @Override
+    public void resetCooldown() {
+        lastUsed = 0;
+    }
+
     private ItemStack createItem() {
         ItemStack item = new ItemStack(Material.COBBLESTONE);
         ItemMeta meta = item.getItemMeta();

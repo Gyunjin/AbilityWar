@@ -85,6 +85,12 @@ public interface Ability {
     default void recordTick(Player p) {}
 
     /**
+     * 쿨타임을 즉시 초기화합니다. '능력 재충전' 이벤트가 호출합니다.
+     * 쿨타임이 없는 능력(포세이돈)은 구현하지 않아도 됩니다.
+     */
+    default void resetCooldown() {}
+
+    /**
      * 치명적인 대미지(체력이 0 이하가 되는 대미지) 발생 시 호출됩니다.
      * @return true면 이 능력이 이벤트를 처리(취소 등)했다는 뜻입니다.
      */

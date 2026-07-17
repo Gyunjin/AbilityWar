@@ -196,6 +196,14 @@ public class AbilityManager implements Listener, CommandExecutor {
         }
     }
 
+    /** 모든 플레이어의 능력 쿨타임을 즉시 초기화합니다. ('능력 재충전' 이벤트용) */
+    public void resetAllCooldowns(Collection<? extends Player> players) {
+        for (Player p : players) {
+            Ability a = playerAbilities.get(p.getUniqueId());
+            if (a != null) a.resetCooldown();
+        }
+    }
+
     public void checkPassiveAbilities(Collection<? extends Player> players, boolean isGameStarted) {
         if (!isGameStarted) return;
         for (Player p : players) {

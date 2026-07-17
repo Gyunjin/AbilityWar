@@ -26,6 +26,7 @@ public class AbilityRegistry {
         register(Teemoability::new);
         register(Maugaability::new);
         register(Assassinability::new);
+        register(Deathwormability::new);
 
         // 새 능력은 이 아래에 한 줄씩 추가하면 됩니다. 예:
         // register(PhoenixAbility::new);

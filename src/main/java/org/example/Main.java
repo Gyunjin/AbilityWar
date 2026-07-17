@@ -48,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import org.example.abilities.AbilityItems;
+import org.example.abilities.Cooldown;
 import org.example.events.EventSpawnCleanupListener;
 import org.example.events.EventSpawns;
 import org.example.events.GameContext;
@@ -164,6 +165,10 @@ public class Main extends JavaPlugin implements Listener {
         if (this.getCommand("관전") != null) {
             this.getCommand("관전").setExecutor(this);
             this.getCommand("관전").setTabCompleter(this);
+        }
+        if (this.getCommand("쿨타임") != null) {
+            this.getCommand("쿨타임").setExecutor(this);
+            this.getCommand("쿨타임").setTabCompleter(this);
         }
 
         // /게임설정으로 바꾼 값들이 서버 재시작 후 기본값으로 되돌아가던 문제 수정:
@@ -435,6 +440,7 @@ public class Main extends JavaPlugin implements Listener {
             case "능력변경권":
             case "팀자동편성":
             case "팀설정":
+            case "쿨타임":
                 return true;
             default:
                 return false;
@@ -669,6 +675,28 @@ public class Main extends JavaPlugin implements Listener {
             return true;
         }
 
+        if (cmd.getName().equalsIgnoreCase("쿨타임")) {
+            if (args.length < 1) {
+                player.sendMessage(ChatColor.YELLOW + "현재 쿨타임 무시: "
+                        + (Cooldown.isDisabled() ? "켜짐 (테스트 모드)" : "꺼짐"));
+                player.sendMessage(ChatColor.GRAY + "사용법: /쿨타임 [on|off]");
+                return true;
+            }
+
+            boolean on = args[0].equalsIgnoreCase("on");
+            Cooldown.setDisabled(on);
+
+            // 테스트 모드가 켜진 줄 모르고 진짜 게임을 하면 곤란하므로 전원에게 알립니다.
+            if (on) {
+                Bukkit.broadcastMessage(ChatColor.LIGHT_PURPLE + "[능력자] 쿨타임 무시가 켜졌습니다. "
+                        + ChatColor.GRAY + "(테스트 모드 - 모든 능력을 즉시 재사용할 수 있습니다)");
+            } else {
+                Bukkit.broadcastMessage(ChatColor.LIGHT_PURPLE + "[능력자] 쿨타임 무시가 꺼졌습니다. "
+                        + ChatColor.GRAY + "(정상 모드)");
+            }
+            return true;
+        }
+
         return false;
     }
 
@@ -706,6 +734,11 @@ public class Main extends JavaPlugin implements Listener {
                         && p.getName().toLowerCase().startsWith(args[0].toLowerCase())) {
                     completions.add(p.getName());
                 }
+            }
+        }
+        if (command.getName().equalsIgnoreCase("쿨타임") && args.length == 1) {
+            for (String opt : new String[]{"on", "off"}) {
+                if (opt.startsWith(args[0].toLowerCase())) completions.add(opt);
             }
         }
         return completions;

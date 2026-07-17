@@ -29,3 +29,6 @@ commands:
   관전:
     description: 관전자 모드에서 다른 생존자를 관전합니다.
     usage: /관전 [플레이어]
+  쿨타임:
+    description: 모든 능력의 쿨타임을 무시합니다. (테스트용)
+    usage: /쿨타임 [on|off]

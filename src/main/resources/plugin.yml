@@ -1,0 +1,31 @@
+name: AbilityWar
+version: '1.0'
+main: org.example.Main
+api-version: '26.1.2'
+commands:
+  게임시작:
+    description: 능력자 게임을 시작합니다.
+  맵변경:
+    description: 프로젝트의 게임 월드 시드를 무작위로 변경합니다.
+  게임종료:
+    description: 현재 진행 중인 능력자 게임을 강제로 종료합니다.
+  능력변경:
+      description: 특정 플레이어의 능력을 강제로 변경하고 아이템을 재지급합니다.
+  게임설정:
+    description: 게임 진행 규칙과 자기장 세부 설정을 변경합니다.
+  능력변경권:
+      description: 관리자 전용 능력 변경권 아이템을 지급합니다.
+  게임설정확인:
+          description: 현재 설정되어 가동 중인 능력자 대전 게임 설정을 확인합니다.
+  팀전:
+    description: 팀전 모드를 켜거나 끕니다.
+    usage: /팀전 [on|off]
+  팀자동편성:
+    description: 온라인 플레이어를 2인 1팀으로 무작위 편성합니다.
+    usage: /팀자동편성
+  팀설정:
+    description: 특정 플레이어를 지정한 팀에 배정합니다.
+    usage: /팀설정 [팀번호] [플레이어]
+  관전:
+    description: 관전자 모드에서 다른 생존자를 관전합니다.
+    usage: /관전 [플레이어]

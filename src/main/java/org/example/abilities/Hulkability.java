@@ -39,7 +39,7 @@ public class Hulkability implements Ability {
     private static final double SLAM_DAMAGE = 6.0;
     private static final int BLOCK_RADIUS = 2;
 
-    private final Cooldown cooldown = new Cooldown(20000);
+    private final Cooldown cooldown = new Cooldown(10000);
 
     // 점프 후 착지를 기다리는 중인지, 착지 직후 낙하 대미지를 무효화할지 여부
     private boolean waitingForLanding = false;
@@ -67,7 +67,7 @@ public class Hulkability implements Ability {
             p.sendMessage(ChatColor.YELLOW + "당신의 무작위 능력은 [" + ChatColor.AQUA + getName() + ChatColor.YELLOW + "] 입니다!");
             p.sendMessage(ChatColor.GRAY + "(패시브 효과: 최대 체력이 상시 하트 20개로 증가합니다.)");
             p.sendMessage(ChatColor.GRAY + "(액티브: 전용 건틀릿 우클릭 시 높이 점프 후 착지하며 대지를 내려찍습니다.)");
-            p.sendMessage(ChatColor.RED + "(쿨타임: 20초)");
+            p.sendMessage(ChatColor.RED + "(쿨타임: 10초)");
             p.sendMessage(ChatColor.GOLD + "========================================");
             p.sendMessage("");
         } else {
@@ -96,6 +96,11 @@ public class Hulkability implements Ability {
         if (!cooldown.tryUse(p, "아직 힘이 회복되지 않았습니다!")) return;
 
         waitingForLanding = true;
+        // 면역을 여기서(점프하는 순간) 켭니다. performSlam()에서 켜면 늦습니다 -
+        // 착지 시 EntityDamageEvent(FALL)가 PlayerMoveEvent보다 먼저 오므로,
+        // 착지를 감지한 뒤에 켜면 낙하 데미지가 이미 지나간 뒤입니다.
+        // 끄는 것은 performSlam()의 3틱 타이머가 그대로 담당합니다.
+        fallDamageImmune = true;
         p.setVelocity(new Vector(0, JUMP_POWER, 0));
         p.getWorld().playSound(p.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.6f);
         p.sendMessage(ChatColor.RED + "포효하며 하늘로 뛰어오릅니다!");
@@ -121,8 +126,10 @@ public class Hulkability implements Ability {
     private void performSlam(Player p) {
         Location loc = p.getLocation();
 
-        // 착지 직후 잠깐 낙하 대미지 면역 처리(같은 틱/다음 틱에 들어오는 FALL 이벤트 방지)
-        fallDamageImmune = true;
+        // 면역은 onInteract(점프 시점)에서 이미 켜져 있습니다. 여기서는 끄는 타이머만
+        // 겁니다. waitingForLanding과 합치지 않는 이유: 착지 판정과 데미지가 정확히 같은
+        // 틱에 오지 않는 경우가 있어, waitingForLanding이 false가 된 뒤에도 잠시 면역이
+        // 남아야 합니다.
         new BukkitRunnable() {
             @Override
             public void run() {

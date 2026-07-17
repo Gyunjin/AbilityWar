@@ -23,7 +23,7 @@ public class Blinkerability implements Ability {
     private static final String ITEM_TAG = "[능력] 블링커";
     private static final double DASH_DAMAGE = 4.0;
 
-    private final Cooldown cooldown = new Cooldown(8000);
+    private final Cooldown cooldown = new Cooldown(4000);
 
     @Override
     public String getName() {
@@ -44,7 +44,7 @@ public class Blinkerability implements Ability {
             p.sendMessage(ChatColor.YELLOW + "당신의 무작위 능력은 [" + ChatColor.AQUA + getName() + ChatColor.YELLOW + "] 입니다!");
             p.sendMessage(ChatColor.GRAY + "(사용 방법: 전용 네더의 별 우클릭 시 6칸 전방 벽 통과 순간이동)");
             p.sendMessage(ChatColor.GRAY + "(대쉬 경로에 있는 플레이어/동물에게 대미지를 줍니다)");
-            p.sendMessage(ChatColor.RED + "(쿨타임: 8초)");
+            p.sendMessage(ChatColor.RED + "(쿨타임: 4초)");
             p.sendMessage(ChatColor.GOLD + "========================================");
             p.sendMessage("");
         } else {

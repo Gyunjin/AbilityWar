@@ -73,7 +73,8 @@ public class GameEventManager {
         try {
             event.start(ctx);
         } catch (Exception e) {
-            plugin.getLogger().warning("[능력자] 이벤트 '" + picked + "' 실행 중 오류: " + e.getMessage());
+            plugin.getLogger().log(java.util.logging.Level.WARNING,
+                    "[능력자] 이벤트 '" + picked + "' 실행 중 오류", e);
         }
     }
 

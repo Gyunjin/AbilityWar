@@ -21,8 +21,10 @@ public final class GameContext {
 
     private final JavaPlugin plugin;
     private final World world;
+    /** 이벤트가 실제 게임 상태를 몰래 변형(예: remove)하지 못하도록 불변 복사본을 보관합니다. */
     private final List<Player> survivors;
     private final boolean farming;
+    /** 이벤트가 실제 게임 상태를 몰래 변형(예: clear)하지 못하도록 불변 복사본을 보관합니다. */
     private final Map<UUID, Integer> kills;
     private final AbilityManager abilityManager;
 
@@ -30,9 +32,9 @@ public final class GameContext {
                        boolean farming, Map<UUID, Integer> kills, AbilityManager abilityManager) {
         this.plugin = plugin;
         this.world = world;
-        this.survivors = survivors;
+        this.survivors = List.copyOf(survivors);
         this.farming = farming;
-        this.kills = kills;
+        this.kills = Map.copyOf(kills);
         this.abilityManager = abilityManager;
     }
 

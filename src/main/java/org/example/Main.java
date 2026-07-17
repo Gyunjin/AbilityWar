@@ -13,9 +13,11 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -23,6 +25,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.MapMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.map.MapView;
 import org.bukkit.scoreboard.DisplaySlot;
@@ -1227,6 +1231,16 @@ public class Main extends JavaPlugin implements Listener {
                     abilityManager.recordHistoryTick(Bukkit.getOnlinePlayers(), isGameStarted);
                 }
 
+                // 평화 파밍 시간 동안 생존 참가자에게 야간투시를 제공합니다.
+                // 60틱(3초)으로 매초 갱신하므로, 전투가 시작되면 최대 3초 뒤 자연히 사라집니다.
+                if (timeElapsed < cfgFarmingTime) {
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        if (p.getGameMode() == GameMode.SURVIVAL && isSurvivingParticipant(p)) {
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 60, 0, false, false, false));
+                        }
+                    }
+                }
+
                 int survivorCount = getSurvivorCount();
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     if (p.getGameMode() == GameMode.SPECTATOR) {
@@ -1385,6 +1399,23 @@ public class Main extends JavaPlugin implements Listener {
         Bukkit.broadcastMessage(ChatColor.GOLD + "========================================");
         Bukkit.broadcastMessage("");
         stopGameForce();
+    }
+
+    /**
+     * 평화 파밍 시간 동안 생존 참가자는 무적입니다.
+     *
+     * PVP Off는 "공격 주체가 플레이어인 대미지"만 차단합니다. 몬스터·낙하·용암·익사·
+     * 선인장 등 비-플레이어 대미지는 그대로 들어와 "파밍 중엔 안 죽는다"는 규칙에 구멍이
+     * 있었습니다. 전투 시작(timeElapsed >= cfgFarmingTime) 전까지는 생존 참가자에게 들어오는
+     * 모든 대미지를 취소합니다. HIGHEST로 두어 다른 핸들러가 되돌리지 못하게 합니다.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onFarmingInvulnerability(EntityDamageEvent event) {
+        if (!isGameStarted) return;
+        if (timeElapsed >= cfgFarmingTime) return;
+        if (!(event.getEntity() instanceof Player p)) return;
+        if (!isSurvivingParticipant(p)) return;
+        event.setCancelled(true);
     }
 
     @EventHandler

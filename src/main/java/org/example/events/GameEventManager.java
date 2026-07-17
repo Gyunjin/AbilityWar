@@ -59,6 +59,10 @@ public class GameEventManager {
     public void tick(GameContext ctx, int intervalSeconds) {
         if (intervalSeconds <= 0 || byName.isEmpty()) return;
 
+        // 평화 파밍 시간에는 어떤 이벤트도 발생시키지 않습니다. 주기 카운터도 올리지 않아,
+        // 전투가 시작된 뒤에야 첫 이벤트까지 intervalSeconds를 온전히 셉니다.
+        if (ctx.isFarming()) return;
+
         secondsSinceLast++;
         if (secondsSinceLast < intervalSeconds) return;
         secondsSinceLast = 0;

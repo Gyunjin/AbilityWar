@@ -20,11 +20,10 @@ import java.util.UUID;
 
 public class Blinkerability implements Ability {
 
-    private static final long COOLDOWN_MS = 8000;
     private static final String ITEM_TAG = "[능력] 블링커";
     private static final double DASH_DAMAGE = 4.0;
 
-    private long lastUsed = 0;
+    private final Cooldown cooldown = new Cooldown(4000);
 
     @Override
     public String getName() {
@@ -33,29 +32,19 @@ public class Blinkerability implements Ability {
 
     @Override
     public void resetCooldown() {
-        lastUsed = 0;
-    }
-
-    private ItemStack createItem() {
-        ItemStack item = new ItemStack(Material.NETHER_STAR);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.AQUA + ITEM_TAG);
-            item.setItemMeta(meta);
-        }
-        return item;
+        cooldown.reset();
     }
 
     @Override
     public void onGrant(Player p, boolean isReGrant) {
-        p.getInventory().addItem(createItem());
+        p.getInventory().addItem(AbilityItems.create(Material.NETHER_STAR, ChatColor.AQUA, ITEM_TAG));
         if (!isReGrant) {
             p.sendMessage("");
             p.sendMessage(ChatColor.GOLD + "========================================");
             p.sendMessage(ChatColor.YELLOW + "당신의 무작위 능력은 [" + ChatColor.AQUA + getName() + ChatColor.YELLOW + "] 입니다!");
             p.sendMessage(ChatColor.GRAY + "(사용 방법: 전용 네더의 별 우클릭 시 6칸 전방 벽 통과 순간이동)");
             p.sendMessage(ChatColor.GRAY + "(대쉬 경로에 있는 플레이어/동물에게 대미지를 줍니다)");
-            p.sendMessage(ChatColor.RED + "(쿨타임: 8초)");
+            p.sendMessage(ChatColor.RED + "(쿨타임: 4초)");
             p.sendMessage(ChatColor.GOLD + "========================================");
             p.sendMessage("");
         } else {
@@ -75,20 +64,13 @@ public class Blinkerability implements Ability {
         // 대쉬가 성공한 직후 보조손 패스가 다시 들어와 쿨타임 안내 메시지가 매번 떴습니다.
         if (event.getHand() != EquipmentSlot.HAND) return;
 
-        ItemStack item = p.getInventory().getItemInMainHand();
-        if (item.getType() != Material.NETHER_STAR || !item.hasItemMeta()) return;
-        if (!item.getItemMeta().hasDisplayName() || !item.getItemMeta().getDisplayName().contains(ITEM_TAG)) return;
+        if (!AbilityItems.isHolding(p, Material.NETHER_STAR, ITEM_TAG)) return;
 
         // 다른 능력들과 달리 블링커만 이벤트를 취소하지 않아, 네더의 별 우클릭이
         // 바닐라 동작으로도 처리되고 있었습니다.
         event.setCancelled(true);
 
-        long now = System.currentTimeMillis();
-        long timeLeft = (lastUsed + COOLDOWN_MS) - now;
-        if (timeLeft > 0) {
-            p.sendMessage(ChatColor.RED + "아직 능력이 준비되지 않았습니다! (남은 시간: " + String.format("%.1f", timeLeft / 1000.0) + "초)");
-            return;
-        }
+        if (!cooldown.tryUse(p, "아직 능력이 준비되지 않았습니다!")) return;
 
         Location startLoc = p.getLocation();
         Location dashEnd = startLoc.clone().add(startLoc.getDirection().multiply(6));
@@ -118,7 +100,6 @@ public class Blinkerability implements Ability {
             return; // 쿨타임을 소모시키지 않습니다.
         }
         p.sendMessage(ChatColor.GREEN + "쉬슉! 벽을 왜곡하여 공간을 이동했습니다.");
-        lastUsed = now;
     }
 
     /** 대쉬 경로(직선) 상에 있는 플레이어/동물 등 생물에게 대미지를 줍니다. */

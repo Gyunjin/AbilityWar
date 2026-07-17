@@ -47,6 +47,8 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import org.example.abilities.AbilityItems;
+import org.example.abilities.Cooldown;
 import org.example.events.EventSpawnCleanupListener;
 import org.example.events.EventSpawns;
 import org.example.events.GameContext;
@@ -164,6 +166,10 @@ public class Main extends JavaPlugin implements Listener {
             this.getCommand("관전").setExecutor(this);
             this.getCommand("관전").setTabCompleter(this);
         }
+        if (this.getCommand("쿨타임") != null) {
+            this.getCommand("쿨타임").setExecutor(this);
+            this.getCommand("쿨타임").setTabCompleter(this);
+        }
 
         // /게임설정으로 바꾼 값들이 서버 재시작 후 기본값으로 되돌아가던 문제 수정:
         // 이전에는 인스턴스 필드에만 저장되고 config에는 저장되지 않았습니다.
@@ -182,6 +188,7 @@ public class Main extends JavaPlugin implements Listener {
         // 게임 종료 시 sweep()은 로드된 청크만 훑으므로, 멀리 떨어진 청크의 잔당은
         // 그 청크가 다음에 로드될 때 이 리스너가 정리합니다.
         getServer().getPluginManager().registerEvents(new EventSpawnCleanupListener(this), this);
+        getServer().getPluginManager().registerEvents(new AdvancementSuppressor(), this);
 
         setupScoreboard();
 
@@ -391,10 +398,9 @@ public class Main extends JavaPlugin implements Listener {
         clearPendingLobbyChanges();
     }
 
-    /** 능력 아이템(귀속 장비, "[능력]" 태그)인지 확인합니다. 사망 드랍 방지 등에 공용으로 사용합니다. */
+    /** 능력 아이템(귀속 장비, "[능력]" 태그)인지 확인합니다. 판정 로직은 AbilityItems가 갖고 있습니다. */
     private boolean isBoundItem(ItemStack item) {
-        return item != null && item.hasItemMeta() && item.getItemMeta().hasDisplayName()
-                && item.getItemMeta().getDisplayName().contains("[능력]");
+        return AbilityItems.isBound(item);
     }
 
     /**
@@ -435,6 +441,7 @@ public class Main extends JavaPlugin implements Listener {
             case "능력변경권":
             case "팀자동편성":
             case "팀설정":
+            case "쿨타임":
                 return true;
             default:
                 return false;
@@ -669,6 +676,28 @@ public class Main extends JavaPlugin implements Listener {
             return true;
         }
 
+        if (cmd.getName().equalsIgnoreCase("쿨타임")) {
+            if (args.length < 1) {
+                player.sendMessage(ChatColor.YELLOW + "현재 쿨타임 무시: "
+                        + (Cooldown.isDisabled() ? "켜짐 (테스트 모드)" : "꺼짐"));
+                player.sendMessage(ChatColor.GRAY + "사용법: /쿨타임 [on|off]");
+                return true;
+            }
+
+            boolean on = args[0].equalsIgnoreCase("on");
+            Cooldown.setDisabled(on);
+
+            // 테스트 모드가 켜진 줄 모르고 진짜 게임을 하면 곤란하므로 전원에게 알립니다.
+            if (on) {
+                Bukkit.broadcastMessage(ChatColor.LIGHT_PURPLE + "[능력자] 쿨타임 무시가 켜졌습니다. "
+                        + ChatColor.GRAY + "(테스트 모드 - 모든 능력을 즉시 재사용할 수 있습니다)");
+            } else {
+                Bukkit.broadcastMessage(ChatColor.LIGHT_PURPLE + "[능력자] 쿨타임 무시가 꺼졌습니다. "
+                        + ChatColor.GRAY + "(정상 모드)");
+            }
+            return true;
+        }
+
         return false;
     }
 
@@ -706,6 +735,11 @@ public class Main extends JavaPlugin implements Listener {
                         && p.getName().toLowerCase().startsWith(args[0].toLowerCase())) {
                     completions.add(p.getName());
                 }
+            }
+        }
+        if (command.getName().equalsIgnoreCase("쿨타임") && args.length == 1) {
+            for (String opt : new String[]{"on", "off"}) {
+                if (opt.startsWith(args[0].toLowerCase())) completions.add(opt);
             }
         }
         return completions;
@@ -786,6 +820,9 @@ public class Main extends JavaPlugin implements Listener {
             newWorld.getWorldBorder().setCenter(0, 0);
             newWorld.getWorldBorder().setSize(cfgInitialBorderSize);
             GameRules.setPvp(newWorld, false);
+            // 발전과제 채팅 알림을 끕니다. AdvancementSuppressor가 토스트까지 막지만,
+            // 예외로 통과시킨 레시피 발전과제가 채팅에 새어나가지 않도록 하는 이중 방어입니다.
+            GameRules.setAnnounceAdvancements(newWorld, false);
             // 새로 생성된 월드는 서버 기본 설정(또는 자동 생성 시 기본값)에 따라
             // 난이도가 평화로움으로 잡히는 경우가 있어, 매번 명시적으로 보통 난이도로 고정합니다.
             newWorld.setDifficulty(Difficulty.NORMAL);
@@ -992,6 +1029,7 @@ public class Main extends JavaPlugin implements Listener {
         gameWorld.getWorldBorder().setCenter(0, 0);
         gameWorld.getWorldBorder().setSize(cfgInitialBorderSize);
         GameRules.setPvp(gameWorld, false);
+        GameRules.setAnnounceAdvancements(gameWorld, false);
         gameWorld.setDifficulty(Difficulty.NORMAL);
 
         try {

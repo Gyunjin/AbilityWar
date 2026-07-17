@@ -38,4 +38,10 @@ public final class GameRules {
         if (world == null) return false;
         return Boolean.TRUE.equals(world.getGameRuleValue(GameRule.PVP));
     }
+
+    /** 발전과제 달성을 채팅에 알릴지 설정합니다. */
+    public static void setAnnounceAdvancements(World world, boolean announce) {
+        if (world == null) return;
+        world.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS, announce);
+    }
 }

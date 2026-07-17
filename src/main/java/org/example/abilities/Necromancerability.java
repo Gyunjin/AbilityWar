@@ -31,7 +31,6 @@ import java.util.Set;
 
 public class Necromancerability implements Ability {
 
-    private static final long COOLDOWN_MS = 35000;
     private static final String ITEM_TAG = "[능력] 사령의 지팡이";
     private static final Set<EntityType> UNDEAD_TYPES = EnumSet.of(
             EntityType.ZOMBIE, EntityType.SKELETON, EntityType.HUSK,
@@ -56,7 +55,7 @@ public class Necromancerability implements Ability {
         return new NamespacedKey(JavaPlugin.getProvidingPlugin(Necromancerability.class), "necro_summon");
     }
 
-    private long lastUsed = 0;
+    private final Cooldown cooldown = new Cooldown(35000);
     private final List<Zombie> summons = new ArrayList<>();
     private Team necroTeam;
 
@@ -67,14 +66,13 @@ public class Necromancerability implements Ability {
 
     @Override
     public void resetCooldown() {
-        lastUsed = 0;
+        cooldown.reset();
     }
 
     private ItemStack createItem() {
-        ItemStack item = new ItemStack(Material.BONE);
+        ItemStack item = AbilityItems.create(Material.BONE, ChatColor.DARK_RED, ITEM_TAG);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(ChatColor.DARK_RED + ITEM_TAG);
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + "우클릭 시 주인을 따르고 적을 공격하는 사령 좀비 3마리를 부립니다.");
             lore.add(ChatColor.GRAY + "지팡이를 들고 있으면 멀리 떨어진 소환수들이 주인 쪽으로 다가옵니다.");
@@ -171,7 +169,7 @@ public class Necromancerability implements Ability {
     @Override
     public void onPassiveTick(Player p) {
         if (summons.isEmpty()) return;
-        if (!isHoldingStaff(p)) return;
+        if (!AbilityItems.isHolding(p, Material.BONE, ITEM_TAG)) return;
 
         Location ownerLoc = p.getLocation();
         double triggerDistSq = FOLLOW_TRIGGER_DISTANCE * FOLLOW_TRIGGER_DISTANCE;
@@ -186,28 +184,16 @@ public class Necromancerability implements Ability {
         }
     }
 
-    private boolean isHoldingStaff(Player p) {
-        ItemStack item = p.getInventory().getItemInMainHand();
-        return item.getType() == Material.BONE && item.hasItemMeta()
-                && item.getItemMeta().hasDisplayName()
-                && item.getItemMeta().getDisplayName().contains(ITEM_TAG);
-    }
-
     @Override
     public void onInteract(Player p, PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         // 우클릭 한 번에 이벤트가 주손/보조손 두 번 발생하므로 주손만 처리합니다.
         if (event.getHand() != EquipmentSlot.HAND) return;
-        if (!isHoldingStaff(p)) return;
+        if (!AbilityItems.isHolding(p, Material.BONE, ITEM_TAG)) return;
 
         event.setCancelled(true);
 
-        long now = System.currentTimeMillis();
-        long timeLeft = (lastUsed + COOLDOWN_MS) - now;
-        if (timeLeft > 0) {
-            p.sendMessage(ChatColor.RED + "지팡이에 사령의 기운이 부족합니다! (남은 시간: " + String.format("%.1f", timeLeft / 1000.0) + "초)");
-            return;
-        }
+        if (!cooldown.tryUse(p, "지팡이에 사령의 기운이 부족합니다!")) return;
 
         clearSummons(p);
 
@@ -258,7 +244,5 @@ public class Necromancerability implements Ability {
         } catch (Exception e) {
             p.getServer().getLogger().warning("[네크로맨서] 팀 충돌 방지 설정 중 오류(소환 자체는 정상 처리됨): " + e.getMessage());
         }
-
-        lastUsed = now;
     }
 }

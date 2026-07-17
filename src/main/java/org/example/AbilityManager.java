@@ -21,11 +21,15 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
 import org.example.abilities.Ability;
+import org.example.abilities.AbilityItems;
 import org.example.abilities.AbilityRegistry;
+import org.example.abilities.Reincarnatorability;
+import org.example.abilities.Vanish;
 import org.example.game.AbilityAssigner;
 
 import java.util.ArrayList;
@@ -162,10 +166,9 @@ public class AbilityManager implements Listener, CommandExecutor {
         }
     }
 
-    /** 능력 아이템(태그 "[능력]")인지 확인합니다. 귀속 아이템 판정에 공용으로 사용합니다. */
+    /** 능력 아이템(태그 "[능력]")인지 확인합니다. 판정 로직은 AbilityItems가 갖고 있습니다. */
     private boolean isBoundItem(ItemStack item) {
-        return item != null && item.hasItemMeta() && item.getItemMeta().hasDisplayName()
-                && item.getItemMeta().getDisplayName().contains("[능력]");
+        return AbilityItems.isBound(item);
     }
 
     /**
@@ -180,12 +183,22 @@ public class AbilityManager implements Listener, CommandExecutor {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player p = event.getPlayer();
+
+        // 은신 중인 다른 플레이어를 이 접속자에게도 숨깁니다. 이게 없으면 방금 들어온
+        // 사람 눈에만 은신자가 보입니다. 능력 보유 여부와 무관하므로 조기 반환보다 앞에 둡니다.
+        Vanish.reapplyFor(plugin, p);
+
         if (playerAbilities.containsKey(p.getUniqueId())) return; // 능력 보유 중이면 정상 상태
 
         PlayerStats.resetMaxHealth(p);
         // 티모의 투명화는 스스로 만료되지만, 이전 버전에서 무한 지속시간으로 걸려
         // 저장돼 있던 플레이어를 위해 여기서도 확실히 정리합니다.
         p.removePotionEffect(PotionEffectType.INVISIBILITY);
+        // 능력이 없는데 은신 상태로 남아 있으면 잔재입니다.
+        Vanish.show(plugin, p);
+        // 윤회자는 무한 지속 효과와 AttributeModifier를 겁니다. 오프라인 중 능력이
+        // 정리됐다면 여기가 유일한 복구 지점입니다(기존 최대체력 정리와 같은 이유).
+        Reincarnatorability.cleanupResidue(p);
     }
 
     /** 능력 아이템(귀속 무기)은 실수로든 의도적으로든 버릴 수 없도록 막습니다. */
@@ -247,6 +260,26 @@ public class AbilityManager implements Listener, CommandExecutor {
         Player player = (Player) event.getEntity();
         Ability a = playerAbilities.get(player.getUniqueId());
         if (a != null) a.onEntityDamageByEntity(player, event);
+    }
+
+    /**
+     * 공격자 기준 근접 대미지 위임. 피격자 기준인 onAbilityDamageByEntity와는 별개이며,
+     * 플레이어가 플레이어를 때리면 두 훅이 각각 자기 능력 인스턴스로 갑니다. 의도된 동작입니다.
+     */
+    @EventHandler
+    public void onAbilityDealDamage(EntityDamageByEntityEvent event) {
+        if (!plugin.isGameStarted()) return;
+        if (!(event.getDamager() instanceof Player attacker)) return;
+        Ability a = playerAbilities.get(attacker.getUniqueId());
+        if (a != null) a.onDealMeleeDamage(attacker, event);
+    }
+
+    /** 바람 인도자의 더블 점프용. 게임 진행 중이 아니어도 위임합니다(로비에서도 비행 토글은 발생). */
+    @EventHandler
+    public void onToggleFlight(PlayerToggleFlightEvent event) {
+        Player p = event.getPlayer();
+        Ability a = playerAbilities.get(p.getUniqueId());
+        if (a != null) a.onToggleFlight(p, event);
     }
 
     @EventHandler

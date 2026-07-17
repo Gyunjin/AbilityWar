@@ -38,7 +38,6 @@ public class Teemoability implements Ability {
 
     private static final String ITEM_TAG = "[능력] 독침 발사기";
 
-    private static final long COOLDOWN_MS = 2500;
     private static final double DART_SPEED = 2.2;
     private static final double DART_DAMAGE = 2.0; // 1하트 - 견제용으로 낮게
     private static final int POISON_DURATION_TICKS = 80; // 4초
@@ -51,7 +50,7 @@ public class Teemoability implements Ability {
     // 무한 지속시간을 쓰면 오프라인 상태에서 해제할 방법이 없어 영구 투명 버그가 됩니다.
     private static final int INVISIBILITY_REFRESH_TICKS = 40;
 
-    private long lastShotTime = 0;
+    private final Cooldown cooldown = new Cooldown(2500);
     private UUID ownerUuid;
     private Plugin plugin;
     private BukkitTask stillnessTask;
@@ -67,23 +66,13 @@ public class Teemoability implements Ability {
 
     @Override
     public void resetCooldown() {
-        lastShotTime = 0;
-    }
-
-    private ItemStack createItem() {
-        ItemStack item = new ItemStack(Material.BLAZE_ROD);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.GREEN + ITEM_TAG);
-            item.setItemMeta(meta);
-        }
-        return item;
+        cooldown.reset();
     }
 
     @Override
     public void onGrant(Player p, boolean isReGrant) {
         this.ownerUuid = p.getUniqueId();
-        p.getInventory().addItem(createItem());
+        p.getInventory().addItem(AbilityItems.create(Material.BLAZE_ROD, ChatColor.GREEN, ITEM_TAG));
 
         if (plugin == null) {
             plugin = JavaPlugin.getProvidingPlugin(getClass());
@@ -121,29 +110,16 @@ public class Teemoability implements Ability {
         }
     }
 
-    private boolean isHoldingBlowgun(Player p) {
-        ItemStack main = p.getInventory().getItemInMainHand();
-        return main.getType() == Material.BLAZE_ROD && main.hasItemMeta()
-                && main.getItemMeta().hasDisplayName()
-                && main.getItemMeta().getDisplayName().contains(ITEM_TAG);
-    }
-
     @Override
     public void onInteract(Player p, PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         // 우클릭 한 번에 이벤트가 주손/보조손 두 번 발생하므로 주손만 처리합니다.
         if (event.getHand() != EquipmentSlot.HAND) return;
-        if (!isHoldingBlowgun(p)) return;
+        if (!AbilityItems.isHolding(p, Material.BLAZE_ROD, ITEM_TAG)) return;
 
         event.setCancelled(true);
 
-        long now = System.currentTimeMillis();
-        long timeLeft = (lastShotTime + COOLDOWN_MS) - now;
-        if (timeLeft > 0) {
-            p.sendMessage(ChatColor.RED + "독침을 재장전 중입니다! (남은 시간: " + String.format("%.1f", timeLeft / 1000.0) + "초)");
-            return;
-        }
-        lastShotTime = now;
+        if (!cooldown.tryUse(p, "독침을 재장전 중입니다!")) return;
 
         Snowball dart = p.launchProjectile(Snowball.class);
         dart.setVelocity(p.getEyeLocation().getDirection().multiply(DART_SPEED));

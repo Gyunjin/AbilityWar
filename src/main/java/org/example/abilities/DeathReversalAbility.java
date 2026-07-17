@@ -21,10 +21,9 @@ import java.util.Random;
 
 public class DeathReversalAbility implements Ability {
 
-    private static final long COOLDOWN_MS = 300000;
     private static final int HISTORY_MAX_SIZE = 30; // 30초 저장
 
-    private long lastUsed = 0;
+    private final Cooldown cooldown = new Cooldown(300000);
     private final LinkedList<PlayerSnapshot> history = new LinkedList<>();
     private final LinkedList<BlockLog> blockHistory = new LinkedList<>();
 
@@ -51,7 +50,7 @@ public class DeathReversalAbility implements Ability {
 
     @Override
     public void resetCooldown() {
-        lastUsed = 0;
+        cooldown.reset();
     }
 
     @Override
@@ -123,17 +122,11 @@ public class DeathReversalAbility implements Ability {
     public boolean onFatalDamage(Player p, EntityDamageEvent event) {
         if (p.getHealth() - event.getFinalDamage() > 0) return false;
 
-        long now = System.currentTimeMillis();
-        long timeLeft = (lastUsed + COOLDOWN_MS) - now;
-        if (timeLeft > 0) {
-            p.sendMessage(ChatColor.RED + "사망회귀가 대기 중입니다! (남은 시간: " + String.format("%.1f", timeLeft / 1000.0) + "초)");
-            return false;
-        }
-
+        // 히스토리가 비어 있으면 회귀할 곳이 없으므로 쿨타임을 소모하기 전에 확인합니다.
         if (history.isEmpty()) return false;
+        if (!cooldown.tryUse(p, "사망회귀가 대기 중입니다!")) return false;
 
         event.setCancelled(true);
-        lastUsed = now;
 
         int availableSize = history.size();
         int minSec = Math.min(10, availableSize);

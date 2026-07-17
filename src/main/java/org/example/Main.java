@@ -604,7 +604,9 @@ public class Main extends JavaPlugin implements Listener {
             Player targetPlayer = Bukkit.getPlayer(args[0]);
             if (targetPlayer == null) return true;
 
-            String targetAbility = args[1];
+            // 능력명에 공백이 있는 경우(예: "바람 인도자")를 위해 두 번째 인자부터 끝까지 합칩니다.
+            // args[1]만 쓰면 "바람"으로 잘려 유효하지 않은 능력이 되어 변경이 조용히 실패했습니다.
+            String targetAbility = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
             if (abilityManager.isValidAbility(targetAbility)) {
                 abilityManager.changePlayerAbilityForce(targetPlayer, targetAbility);
                 player.sendMessage(ChatColor.GREEN + targetPlayer.getName() + "님의 능력을 [" + targetAbility + "](으)로 변경했습니다.");

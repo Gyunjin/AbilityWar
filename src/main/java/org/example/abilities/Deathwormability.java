@@ -83,7 +83,7 @@ public class Deathwormability implements Ability {
             p.sendMessage(ChatColor.GRAY + "(패시브: 모래/사암 위에 있으면 재생 1과 저항 1을 얻습니다.)");
             p.sendMessage(ChatColor.GRAY + "(액티브: 모래 위에서 우클릭 시 5초간 땅속으로 잠행합니다. 완전히 사라지고 신속 3.)");
             p.sendMessage(ChatColor.GRAY + "(잠행이 끝나거나 적을 때리면 습격 - 주변에 대미지 7과 높은 띄우기.)");
-            p.sendMessage(ChatColor.RED + "(잠행 중 모래를 벗어나면 실패합니다. 쿨타임은 그대로 소모됩니다. 쿨타임: 25초)");
+            p.sendMessage(ChatColor.RED + "(잠행 중 땅에 착지했는데 모래가 아니면 실패하고 쿨타임이 반환됩니다. 점프는 가능. 쿨타임: 25초)");
             p.sendMessage(ChatColor.GOLD + "========================================");
             p.sendMessage("");
         } else {
@@ -160,8 +160,10 @@ public class Deathwormability implements Ability {
                 }
                 ticks++;
 
-                // 실패 조건: 모래가 아닌 블록 위로 올라가면 즉시 실패. 습격 없음.
-                if (!onSand(p)) {
+                // 실패 조건: 땅에 착지한 상태에서 발밑이 모래가 아니면 실패. 습격 없음.
+                // 점프로 잠깐 공중에 뜬 경우(발밑이 공기)는 실패로 치지 않습니다 -
+                // 그래야 잠행 중에도 점프할 수 있습니다.
+                if (p.isOnGround() && !onSand(p)) {
                     failBurrow(p, true);
                     return;
                 }
@@ -186,15 +188,17 @@ public class Deathwormability implements Ability {
         }
     }
 
-    /** 실패로 끝난 경우 습격은 발생하지 않습니다. 쿨타임은 그대로 소모된 채 남습니다. */
+    /** 실패로 끝난 경우 습격은 발생하지 않습니다. 캔슬이므로 쿨타임을 돌려줍니다. */
     private void failBurrow(Player p, boolean notify) {
         cancelBurrow();
         burrowing = false;
+        // 잠행이 실패로 캔슬되면 쿨타임을 돌려줘서 바로 다시 시도할 수 있게 합니다.
+        cooldown.reset();
         if (p == null) return;
         Vanish.show(JavaPlugin.getProvidingPlugin(getClass()), p);
         p.removePotionEffect(PotionEffectType.SPEED);
         if (notify && p.isOnline()) {
-            p.sendMessage(ChatColor.RED + "모래를 벗어나 잠행이 실패했습니다! " + ChatColor.GRAY + "(쿨타임은 그대로 흐릅니다)");
+            p.sendMessage(ChatColor.RED + "모래를 벗어나 잠행이 실패했습니다! " + ChatColor.GRAY + "(쿨타임이 반환되었습니다)");
         }
     }
 
@@ -219,10 +223,15 @@ public class Deathwormability implements Ability {
         p.getWorld().playSound(loc, Sound.BLOCK_SAND_BREAK, 1.4f, 0.6f);
         p.getWorld().spawnParticle(Particle.BLOCK, loc, 40, 1.0, 0.5, 1.0, Material.SAND.createBlockData());
 
+        JavaPlugin plugin = JavaPlugin.getProvidingPlugin(getClass());
         for (Entity e : p.getNearbyEntities(AMBUSH_RADIUS, AMBUSH_RADIUS, AMBUSH_RADIUS)) {
             if (!(e instanceof LivingEntity victim) || e.equals(p)) continue;
             victim.damage(AMBUSH_DAMAGE, p);
-            victim.setVelocity(victim.getVelocity().add(new Vector(0, AMBUSH_LIFT, 0)));
+            // 띄우기를 다음 틱에 적용합니다. damage()가 유발하는 바닐라 넉백이 같은 틱의
+            // setVelocity를 덮어써서, 특히 동물이 안 떠오르던 문제를 피합니다.
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (victim.isValid()) victim.setVelocity(victim.getVelocity().add(new Vector(0, AMBUSH_LIFT, 0)));
+            });
         }
         p.sendMessage(ChatColor.YELLOW + "모래를 뚫고 솟아올랐습니다!");
     }

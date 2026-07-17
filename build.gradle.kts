@@ -20,6 +20,16 @@ java {
 dependencies {
     // 서버 버전(마인크래프트 26.1.2)에 맞춘 Paper API.
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.74-stable")
+
+    testImplementation(platform("org.junit:junit-bom:5.12.2"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    // Gradle 9부터는 JUnit Platform launcher를 테스트 런타임에 명시적으로 넣어야 합니다.
+    // 없으면 "Failed to load JUnit Platform"으로 테스트 실행 자체가 실패합니다.
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks.withType<JavaCompile> {

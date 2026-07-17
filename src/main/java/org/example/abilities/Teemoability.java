@@ -65,6 +65,11 @@ public class Teemoability implements Ability {
         return "티모";
     }
 
+    @Override
+    public void resetCooldown() {
+        lastShotTime = 0;
+    }
+
     private ItemStack createItem() {
         ItemStack item = new ItemStack(Material.BLAZE_ROD);
         ItemMeta meta = item.getItemMeta();

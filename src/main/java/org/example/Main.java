@@ -47,6 +47,11 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import org.example.events.EventSpawnCleanupListener;
+import org.example.events.EventSpawns;
+import org.example.events.GameContext;
+import org.example.events.GameEventManager;
+
 public class Main extends JavaPlugin implements Listener {
 
     private boolean isGameStarted = false;
@@ -57,6 +62,17 @@ public class Main extends JavaPlugin implements Listener {
 
     private Scoreboard gameScoreboard;
     private Objective scoreboardObjective;
+
+    /**
+     * 판을 구분하는 번호. 이벤트 스폰물 표식(PDC)에 이 값을 박아둡니다.
+     *
+     * 이게 필요한 이유: 이벤트 좀비는 대부분 멀리 떨어진(=언로드된) 청크에 있어
+     * 게임 종료 시의 sweep()에 잡히지 않고, 그 청크는 플레이어가 흩어지는 "게임 중"에만
+     * 로드됩니다. 그래서 "게임 중이면 정리하지 않는다"는 가드로는 잔당을 영영 지울 수
+     * 없었습니다(1판 좀비가 2판, 3판까지 생존). 세션 id로 식별하면 게임 상태와 무관하게
+     * 지난 판 것만 골라 지울 수 있습니다.
+     */
+    private int eventSessionId = 0;
 
     /**
      * 게임 시작 전(대기시간) 동안 변경된 블록의 "변경되기 전" 상태를 위치별로 1개씩만 기록합니다.
@@ -73,6 +89,7 @@ public class Main extends JavaPlugin implements Listener {
     private AbilityManager abilityManager;
     private final TeamManager teamManager = new TeamManager();
     private HealthBarListener healthBarListener;
+    private GameEventManager gameEventManager;
 
     // 게임 종료 후 결과 요약(이름/능력/킬수)에 쓰이는 정보
     private final Set<UUID> gameParticipants = new HashSet<>();
@@ -98,6 +115,7 @@ public class Main extends JavaPlugin implements Listener {
     private double cfgBorderDamage = 1.0;
     private int cfgFarmingTime = 1800;
     private int cfgCombatTime = 300;
+    private int cfgEventInterval = 300;
 
     private boolean borderShrinking = false;
     // timeElapsed == cfgFarmingTime 같은 "정확히 같을 때만" 트리거하는 방식은
@@ -154,11 +172,16 @@ public class Main extends JavaPlugin implements Listener {
         cfgBorderDamage = getConfig().getDouble("cfg-border-damage", cfgBorderDamage);
         cfgFarmingTime = getConfig().getInt("cfg-farming-time", cfgFarmingTime);
         cfgCombatTime = getConfig().getInt("cfg-combat-time", cfgCombatTime);
+        cfgEventInterval = getConfig().getInt("cfg-event-interval", cfgEventInterval);
 
         this.abilityManager = new AbilityManager(this);
+        this.gameEventManager = new GameEventManager(this);
         getServer().getPluginManager().registerEvents(this.abilityManager, this);
         getServer().getPluginManager().registerEvents(this.teamManager, this);
         getServer().getPluginManager().registerEvents(this, this);
+        // 게임 종료 시 sweep()은 로드된 청크만 훑으므로, 멀리 떨어진 청크의 잔당은
+        // 그 청크가 다음에 로드될 때 이 리스너가 정리합니다.
+        getServer().getPluginManager().registerEvents(new EventSpawnCleanupListener(this), this);
 
         setupScoreboard();
 
@@ -210,6 +233,10 @@ public class Main extends JavaPlugin implements Listener {
         // 능력 정리를 하지 않고 내려가면 헐크의 최대 체력 40이 플레이어 데이터에 그대로 남고,
         // 네크로맨서 좀비(persistent 설정)는 월드에 영구히 박제됩니다. 서버가 어떻게 내려가든
         // 항상 원상복구되도록 여기서 일괄 정리합니다.
+        if (gameWorld != null) {
+            EventSpawns.sweep(gameWorld, this);
+        }
+
         if (abilityManager != null) {
             abilityManager.clearAbilities();
         }
@@ -435,6 +462,8 @@ public class Main extends JavaPlugin implements Listener {
             player.sendMessage(ChatColor.YELLOW + "▶ 평화 파밍 시간: " + ChatColor.WHITE + cfgFarmingTime + "초 (" + (cfgFarmingTime / 60) + "분)");
             player.sendMessage(ChatColor.YELLOW + "▶ 자기장 축소 시간: " + ChatColor.WHITE + cfgCombatTime + "초 (" + (cfgCombatTime / 60) + "분)");
             player.sendMessage(ChatColor.YELLOW + "▶ 최종 자기장 고정 크기: " + ChatColor.WHITE + (int)cfgFinalBorderSize + "x" + (int)cfgFinalBorderSize);
+            player.sendMessage(ChatColor.YELLOW + "▶ 이벤트 간격: " + ChatColor.WHITE
+                    + (cfgEventInterval > 0 ? cfgEventInterval + "초" : "꺼짐"));
             sendDiagnostics(player);
             player.sendMessage(ChatColor.GOLD + "===============================================");
             player.sendMessage("");
@@ -509,6 +538,7 @@ public class Main extends JavaPlugin implements Listener {
                 case "자기장대미지": cfgBorderDamage = value; break;
                 case "평화시간(초)": cfgFarmingTime = (int) value; break;
                 case "전투시간(초)": cfgCombatTime = (int) value; break;
+                case "이벤트간격(초)": cfgEventInterval = (int) value; break;
                 default:
                     player.sendMessage(ChatColor.RED + "존재하지 않는 설정입니다.");
                     return true;
@@ -527,6 +557,7 @@ public class Main extends JavaPlugin implements Listener {
                 getConfig().set("cfg-border-damage", cfgBorderDamage);
                 getConfig().set("cfg-farming-time", cfgFarmingTime);
                 getConfig().set("cfg-combat-time", cfgCombatTime);
+                getConfig().set("cfg-event-interval", cfgEventInterval);
                 saveConfig();
             } catch (Exception e) {
                 getLogger().warning("[능력자] 게임 설정 저장 중 오류: " + e.getMessage());
@@ -647,7 +678,7 @@ public class Main extends JavaPlugin implements Listener {
 
         if (command.getName().equalsIgnoreCase("게임설정")) {
             if (args.length == 1) {
-                String[] options = {"시작크기", "최종크기", "자기장대미지", "평화시간(초)", "전투시간(초)"};
+                String[] options = {"시작크기", "최종크기", "자기장대미지", "평화시간(초)", "전투시간(초)", "이벤트간격(초)"};
                 for (String opt : options) { if (opt.startsWith(args[0])) completions.add(opt); }
             }
         }
@@ -971,7 +1002,29 @@ public class Main extends JavaPlugin implements Listener {
 
         abilityManager.assignAbilitiesIfNone(Bukkit.getOnlinePlayers());
         giveBattleMapToAll();
+        gameEventManager.reset();
+        // 새 판이 시작됐음을 표식 값으로 남길 수 있도록 세션 id를 올립니다. 이 시점 이후
+        // 스폰되는 이벤트 몹은 새 id를 달고, 지난 판 id를 단 잔당은 청크가 로드되는
+        // 순간(EventSpawnCleanupListener) 제거됩니다.
+        eventSessionId++;
         startTimer();
+    }
+
+    /**
+     * 파밍이 끝나는 순간 이번 판에 등장한 능력의 "이름만" 공개합니다.
+     * 누가 무엇을 가졌는지는 알리지 않습니다. 사망 시 공개(onPlayerDeath)와 맞물려
+     * 소거법이 성립하고, 그것이 후반 교전의 긴장을 만듭니다.
+     */
+    private void revealAbilityLineup() {
+        List<String> names = abilityManager.getAssignedAbilityNames();
+        if (names.isEmpty()) return;
+
+        Bukkit.broadcastMessage("");
+        Bukkit.broadcastMessage(ChatColor.GOLD + "========== [ 이번 판 등장 능력 ] ==========");
+        Bukkit.broadcastMessage(ChatColor.AQUA + "  " + String.join(ChatColor.GRAY + " · " + ChatColor.AQUA, names));
+        Bukkit.broadcastMessage(ChatColor.GRAY + "  (누가 어떤 능력인지는 공개되지 않습니다)");
+        Bukkit.broadcastMessage(ChatColor.GOLD + "==========================================");
+        Bukkit.broadcastMessage("");
     }
 
     // 전체 플레이어의 능력을 채팅창에 공개하는 프라이빗 메서드
@@ -1019,6 +1072,14 @@ public class Main extends JavaPlugin implements Listener {
         // 오프라인 플레이어의 소환물/상태까지 포함해 모든 능력을 일괄 정리합니다.
         if (abilityManager != null) {
             abilityManager.clearAbilities();
+        }
+
+        // 이벤트가 스폰한 몬스터/상자를 회수합니다. 정리 지점은 여기 한 곳뿐입니다.
+        if (gameWorld != null) {
+            int removed = EventSpawns.sweep(gameWorld, this);
+            if (removed > 0) {
+                getLogger().info("[능력자] 이벤트 스폰물 " + removed + "개를 정리했습니다.");
+            }
         }
 
         teamManager.clear();
@@ -1156,11 +1217,22 @@ public class Main extends JavaPlugin implements Listener {
                     borderShrinking = true;
                     Bukkit.broadcastMessage(ChatColor.RED + "[능력자] 파밍 시간이 종료되었습니다! PVP가 활성화되며, "
                             + cfgCombatTime + "초에 걸쳐 자기장이 서서히 " + (int) cfgFinalBorderSize + "x" + (int) cfgFinalBorderSize + "(으)로 축소됩니다!");
+                    revealAbilityLineup();
                 }
 
                 if (borderShrinking && timeElapsed >= cfgFarmingTime + cfgCombatTime) {
                     borderShrinking = false;
                     Bukkit.broadcastMessage(ChatColor.DARK_RED + "[능력자] 자기장이 최종 크기(" + (int) cfgFinalBorderSize + "x" + (int) cfgFinalBorderSize + ")로 축소 완료되었습니다!");
+                }
+
+                if (gameEventManager != null && gameWorld != null) {
+                    List<Player> survivors = new ArrayList<>();
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        if (isSurvivingParticipant(p)) survivors.add(p);
+                    }
+                    GameContext ctx = new GameContext(Main.this, gameWorld, survivors,
+                            timeElapsed < cfgFarmingTime, killCounts, abilityManager, eventSessionId);
+                    gameEventManager.tick(ctx, cfgEventInterval);
                 }
 
                 checkWinner();
@@ -1294,6 +1366,15 @@ public class Main extends JavaPlugin implements Listener {
             killCounts.merge(killer.getUniqueId(), 1, Integer::sum);
         }
 
+        // 사망자의 능력을 공개합니다. 파밍 종료 시 공개된 등장 능력 목록과 맞물려
+        // 남은 사람의 능력을 소거법으로 좁힐 수 있게 됩니다.
+        String deadAbility = abilityManager.getPlayerAbilityName(deadPlayer.getUniqueId());
+        if (deadAbility != null && !deadAbility.isEmpty()) {
+            Bukkit.broadcastMessage(ChatColor.GRAY + "☠ " + ChatColor.WHITE + deadPlayer.getName()
+                    + ChatColor.GRAY + " 님의 능력은 " + ChatColor.AQUA + "[" + deadAbility + "]"
+                    + ChatColor.GRAY + " 이었습니다.");
+        }
+
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -1382,4 +1463,7 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     public boolean isGameStarted() { return isGameStarted; }
+
+    /** 현재 판의 이벤트 세션 id. 청크 로드 정리에서 지난 판 스폰물을 구분하는 데 씁니다. */
+    public int getEventSessionId() { return eventSessionId; }
 }

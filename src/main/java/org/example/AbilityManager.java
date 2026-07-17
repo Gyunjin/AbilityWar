@@ -26,11 +26,17 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
 import org.example.abilities.Ability;
 import org.example.abilities.AbilityRegistry;
+import org.example.game.AbilityAssigner;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 
 public class AbilityManager implements Listener, CommandExecutor {
@@ -61,6 +67,16 @@ public class AbilityManager implements Listener, CommandExecutor {
         return a == null ? null : a.getName();
     }
 
+    /** 이번 게임에 배정된 능력 이름 목록(정렬). 파밍 종료 시 등장 능력 공개에 씁니다. */
+    public List<String> getAssignedAbilityNames() {
+        List<String> names = new ArrayList<>();
+        for (Ability a : playerAbilities.values()) {
+            names.add(a.getName());
+        }
+        Collections.sort(names);
+        return names;
+    }
+
     /** 게임 종료/초기화 시 호출. 모든 플레이어의 능력을 원상복구하고 목록을 비웁니다. */
     public void clearAbilities() {
         for (Map.Entry<UUID, Ability> entry : playerAbilities.entrySet()) {
@@ -72,23 +88,46 @@ public class AbilityManager implements Listener, CommandExecutor {
 
     /** 게임 시작 시 호출. 아직 능력이 없는 플레이어에게만 무작위 배정합니다. */
     public void assignAbilitiesIfNone(Collection<? extends Player> players) {
-        Random random = new Random();
+        // 능력이 없는 플레이어를 먼저 모읍니다. 이들에게만 중복 없이 배정합니다.
+        List<Player> needAbility = new ArrayList<>();
+        for (Player p : players) {
+            if (!playerAbilities.containsKey(p.getUniqueId())) {
+                needAbility.add(p);
+            }
+        }
+
+        // 이미 능력을 가진(=변경권으로 미리 배정된) 플레이어의 능력 이름은 풀에서 빼야
+        // 새로 배정되는 플레이어와 겹치지 않습니다.
+        Set<String> taken = new HashSet<>();
+        for (Player p : players) {
+            if (needAbility.contains(p)) continue;
+            String name = getPlayerAbilityName(p.getUniqueId());
+            if (name != null) taken.add(name);
+        }
+
+        List<String> pool = AbilityAssigner.availablePool(List.of(AbilityRegistry.getNames()), taken);
+        List<String> assigned = AbilityAssigner.assign(pool, needAbility.size(), new Random());
+
+        for (int i = 0; i < needAbility.size(); i++) {
+            Player p = needAbility.get(i);
+            Ability ability = AbilityRegistry.create(assigned.get(i));
+            if (ability == null) continue;
+            playerAbilities.put(p.getUniqueId(), ability);
+            ability.onGrant(p, false);
+        }
+
+        // 이미 능력이 있는 플레이어는 같은 능력으로 새 인스턴스를 만들어 초기화한 뒤
+        // 장비만 재지급합니다. 기존 인스턴스를 그대로 쓰면 소환물·쿨타임 상태가 남습니다.
         for (Player p : players) {
             Ability existing = playerAbilities.get(p.getUniqueId());
-            if (existing == null) {
-                Ability ability = AbilityRegistry.create(AbilityRegistry.randomName(random));
-                playerAbilities.put(p.getUniqueId(), ability);
-                ability.onGrant(p, false);
-            } else {
-                // 게임 시작 시 기존 인스턴스를 그대로 쓰면 소환물·쿨타임 등 상태가 남습니다.
-                // 같은 능력 이름으로 새 인스턴스를 만들어 초기화한 뒤 장비만 재지급합니다.
-                String abilityName = existing.getName();
-                existing.onRevoke(p);
-                Ability fresh = AbilityRegistry.create(abilityName);
-                if (fresh != null) {
-                    playerAbilities.put(p.getUniqueId(), fresh);
-                    fresh.onGrant(p, true);
-                }
+            if (existing == null || needAbility.contains(p)) continue;
+
+            String abilityName = existing.getName();
+            existing.onRevoke(p);
+            Ability fresh = AbilityRegistry.create(abilityName);
+            if (fresh != null) {
+                playerAbilities.put(p.getUniqueId(), fresh);
+                fresh.onGrant(p, true);
             }
         }
     }
@@ -165,6 +204,14 @@ public class AbilityManager implements Listener, CommandExecutor {
         if (isBoundItem(event.getMainHandItem()) || isBoundItem(event.getOffHandItem())) {
             event.setCancelled(true);
             event.getPlayer().sendMessage(ChatColor.RED + "귀속된 능력 아이템은 왼손에 들 수 없습니다.");
+        }
+    }
+
+    /** 모든 플레이어의 능력 쿨타임을 즉시 초기화합니다. ('능력 재충전' 이벤트용) */
+    public void resetAllCooldowns(Collection<? extends Player> players) {
+        for (Player p : players) {
+            Ability a = playerAbilities.get(p.getUniqueId());
+            if (a != null) a.resetCooldown();
         }
     }
 

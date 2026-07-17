@@ -47,6 +47,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import org.example.events.EventSpawnCleanupListener;
 import org.example.events.EventSpawns;
 import org.example.events.GameContext;
 import org.example.events.GameEventManager;
@@ -167,6 +168,9 @@ public class Main extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this.abilityManager, this);
         getServer().getPluginManager().registerEvents(this.teamManager, this);
         getServer().getPluginManager().registerEvents(this, this);
+        // 게임 종료 시 sweep()은 로드된 청크만 훑으므로, 멀리 떨어진 청크의 잔당은
+        // 그 청크가 다음에 로드될 때 이 리스너가 정리합니다.
+        getServer().getPluginManager().registerEvents(new EventSpawnCleanupListener(this), this);
 
         setupScoreboard();
 

@@ -31,8 +31,14 @@ public class NightRushEvent implements GameEvent {
         if (ctx.getWorld() == null) return;
         ctx.getWorld().setTime(NIGHT_TIME);
 
+        World world = ctx.getWorld();
         for (Player p : ctx.getSurvivors()) {
-            World world = p.getWorld();
+            // 게임 월드 밖의 생존자는 건너뜁니다. sweep()은 ctx.getWorld()만 훑으므로
+            // p.getWorld()에 스폰하면 회수되지 않는 좀비가 남습니다. 그렇다고 좌표만
+            // 가져와 게임 월드에 스폰하는 것도 안 됩니다. 다른 월드의 x/z는 게임
+            // 월드에서 아무 의미 없는 자리라 엉뚱한 곳에 몹이 생깁니다.
+            if (!p.getWorld().equals(world)) continue;
+
             Location base = p.getLocation();
 
             for (int i = 0; i < PER_PLAYER; i++) {

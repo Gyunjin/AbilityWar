@@ -41,6 +41,9 @@ public class SupplyDropEvent implements GameEvent {
 
         Block block = loc.getBlock();
         block.setType(Material.CHEST);
+        // 게임 종료 시 블록째 회수할 수 있도록 좌표를 남깁니다. 상자는 엔티티가 아니라
+        // 블록이라 EventSpawns.sweep()의 엔티티 순회로는 절대 잡히지 않습니다.
+        EventSpawns.tagBlock(loc);
         if (block.getState() instanceof Chest chest) {
             chest.getBlockInventory().addItem(
                     new ItemStack(Material.DIAMOND_SWORD),

@@ -31,9 +31,11 @@ import org.example.game.AbilityAssigner;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 
 public class AbilityManager implements Listener, CommandExecutor {
@@ -83,8 +85,17 @@ public class AbilityManager implements Listener, CommandExecutor {
             }
         }
 
-        List<String> assigned = AbilityAssigner.assign(
-                List.of(AbilityRegistry.getNames()), needAbility.size(), new Random());
+        // 이미 능력을 가진(=변경권으로 미리 배정된) 플레이어의 능력 이름은 풀에서 빼야
+        // 새로 배정되는 플레이어와 겹치지 않습니다.
+        Set<String> taken = new HashSet<>();
+        for (Player p : players) {
+            if (needAbility.contains(p)) continue;
+            String name = getPlayerAbilityName(p.getUniqueId());
+            if (name != null) taken.add(name);
+        }
+
+        List<String> pool = AbilityAssigner.availablePool(List.of(AbilityRegistry.getNames()), taken);
+        List<String> assigned = AbilityAssigner.assign(pool, needAbility.size(), new Random());
 
         for (int i = 0; i < needAbility.size(); i++) {
             Player p = needAbility.get(i);

@@ -1,6 +1,7 @@
 package org.example.game;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -36,5 +37,19 @@ public final class AbilityAssigner {
             }
         }
         return result;
+    }
+
+    /**
+     * @param all   전체 능력 이름 목록 (변경하지 않음)
+     * @param taken 이미 다른 플레이어가 보유 중인 능력 이름
+     * @return all에서 taken을 뺀 목록. 단, 그 결과가 비면(=인원이 능력 수보다 많아
+     *         taken이 all 전체를 덮는 경우) all을 그대로 반환합니다. 비어있는 풀을
+     *         assign()에 넘기면 빈 목록이 나오고, 호출부의 assigned.get(i)가
+     *         IndexOutOfBoundsException을 던지기 때문입니다.
+     */
+    public static List<String> availablePool(List<String> all, Collection<String> taken) {
+        List<String> result = new ArrayList<>(all);
+        result.removeAll(taken);
+        return result.isEmpty() ? all : result;
     }
 }

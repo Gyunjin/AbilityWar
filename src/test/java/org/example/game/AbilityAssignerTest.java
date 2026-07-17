@@ -67,4 +67,43 @@ class AbilityAssignerTest {
         Set<String> empty = new HashSet<>();
         assertEquals(List.of(), AbilityAssigner.assign(List.copyOf(empty), 3, new Random(1)));
     }
+
+    @Test
+    void availablePool_이미_가진_능력을_제외한다() {
+        List<String> taken = List.of("헐크");
+
+        List<String> result = AbilityAssigner.availablePool(POOL, taken);
+
+        assertEquals(5, result.size());
+        assertTrue(!result.contains("헐크"));
+        assertTrue(POOL.containsAll(result));
+    }
+
+    @Test
+    void availablePool_taken이_비어있으면_전체_풀_반환() {
+        List<String> result = AbilityAssigner.availablePool(POOL, List.of());
+
+        assertEquals(POOL, result);
+    }
+
+    @Test
+    void availablePool_taken에_풀에_없는_이름이_있어도_무시한다() {
+        List<String> taken = List.of("존재하지않는능력");
+
+        List<String> result = AbilityAssigner.availablePool(POOL, taken);
+
+        assertEquals(POOL, result);
+    }
+
+    @Test
+    void availablePool_taken이_전체를_제거하면_원본_풀을_그대로_반환한다() {
+        // 인원이 능력 수보다 많을 때(7명, 능력 6종) 발생하는 경우.
+        // 결과가 비어 있으면 assign()이 빈 목록을 돌려주고, 호출부의
+        // assigned.get(i)가 IndexOutOfBoundsException을 던지게 된다.
+        List<String> taken = new ArrayList<>(POOL);
+
+        List<String> result = AbilityAssigner.availablePool(POOL, taken);
+
+        assertEquals(POOL, result);
+    }
 }

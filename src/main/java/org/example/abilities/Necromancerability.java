@@ -31,7 +31,6 @@ import java.util.Set;
 
 public class Necromancerability implements Ability {
 
-    private static final long COOLDOWN_MS = 35000;
     private static final String ITEM_TAG = "[능력] 사령의 지팡이";
     private static final Set<EntityType> UNDEAD_TYPES = EnumSet.of(
             EntityType.ZOMBIE, EntityType.SKELETON, EntityType.HUSK,
@@ -56,7 +55,7 @@ public class Necromancerability implements Ability {
         return new NamespacedKey(JavaPlugin.getProvidingPlugin(Necromancerability.class), "necro_summon");
     }
 
-    private long lastUsed = 0;
+    private final Cooldown cooldown = new Cooldown(35000);
     private final List<Zombie> summons = new ArrayList<>();
     private Team necroTeam;
 
@@ -67,7 +66,7 @@ public class Necromancerability implements Ability {
 
     @Override
     public void resetCooldown() {
-        lastUsed = 0;
+        cooldown.reset();
     }
 
     private ItemStack createItem() {
@@ -202,12 +201,7 @@ public class Necromancerability implements Ability {
 
         event.setCancelled(true);
 
-        long now = System.currentTimeMillis();
-        long timeLeft = (lastUsed + COOLDOWN_MS) - now;
-        if (timeLeft > 0) {
-            p.sendMessage(ChatColor.RED + "지팡이에 사령의 기운이 부족합니다! (남은 시간: " + String.format("%.1f", timeLeft / 1000.0) + "초)");
-            return;
-        }
+        if (!cooldown.tryUse(p, "지팡이에 사령의 기운이 부족합니다!")) return;
 
         clearSummons(p);
 
@@ -258,7 +252,5 @@ public class Necromancerability implements Ability {
         } catch (Exception e) {
             p.getServer().getLogger().warning("[네크로맨서] 팀 충돌 방지 설정 중 오류(소환 자체는 정상 처리됨): " + e.getMessage());
         }
-
-        lastUsed = now;
     }
 }

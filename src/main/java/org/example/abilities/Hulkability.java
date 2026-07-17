@@ -33,14 +33,13 @@ import org.example.PlayerStats;
 public class Hulkability implements Ability {
 
     private static final double MAX_HEALTH = 40.0;
-    private static final long COOLDOWN_MS = 20000;
     private static final String ITEM_TAG = "[능력] 괴력의 건틀릿";
     private static final double JUMP_POWER = 1.4;
     private static final double SLAM_RADIUS = 3.0;
     private static final double SLAM_DAMAGE = 6.0;
     private static final int BLOCK_RADIUS = 2;
 
-    private long lastUsed = 0;
+    private final Cooldown cooldown = new Cooldown(20000);
 
     // 점프 후 착지를 기다리는 중인지, 착지 직후 낙하 대미지를 무효화할지 여부
     private boolean waitingForLanding = false;
@@ -53,7 +52,7 @@ public class Hulkability implements Ability {
 
     @Override
     public void resetCooldown() {
-        lastUsed = 0;
+        cooldown.reset();
     }
 
     private ItemStack createItem() {
@@ -111,14 +110,8 @@ public class Hulkability implements Ability {
 
         event.setCancelled(true);
 
-        long now = System.currentTimeMillis();
-        long timeLeft = (lastUsed + COOLDOWN_MS) - now;
-        if (timeLeft > 0) {
-            p.sendMessage(ChatColor.RED + "아직 힘이 회복되지 않았습니다! (남은 시간: " + String.format("%.1f", timeLeft / 1000.0) + "초)");
-            return;
-        }
+        if (!cooldown.tryUse(p, "아직 힘이 회복되지 않았습니다!")) return;
 
-        lastUsed = now;
         waitingForLanding = true;
         p.setVelocity(new Vector(0, JUMP_POWER, 0));
         p.getWorld().playSound(p.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.6f);

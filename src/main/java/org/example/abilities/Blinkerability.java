@@ -20,11 +20,10 @@ import java.util.UUID;
 
 public class Blinkerability implements Ability {
 
-    private static final long COOLDOWN_MS = 8000;
     private static final String ITEM_TAG = "[능력] 블링커";
     private static final double DASH_DAMAGE = 4.0;
 
-    private long lastUsed = 0;
+    private final Cooldown cooldown = new Cooldown(8000);
 
     @Override
     public String getName() {
@@ -33,7 +32,7 @@ public class Blinkerability implements Ability {
 
     @Override
     public void resetCooldown() {
-        lastUsed = 0;
+        cooldown.reset();
     }
 
     private ItemStack createItem() {
@@ -83,12 +82,7 @@ public class Blinkerability implements Ability {
         // 바닐라 동작으로도 처리되고 있었습니다.
         event.setCancelled(true);
 
-        long now = System.currentTimeMillis();
-        long timeLeft = (lastUsed + COOLDOWN_MS) - now;
-        if (timeLeft > 0) {
-            p.sendMessage(ChatColor.RED + "아직 능력이 준비되지 않았습니다! (남은 시간: " + String.format("%.1f", timeLeft / 1000.0) + "초)");
-            return;
-        }
+        if (!cooldown.tryUse(p, "아직 능력이 준비되지 않았습니다!")) return;
 
         Location startLoc = p.getLocation();
         Location dashEnd = startLoc.clone().add(startLoc.getDirection().multiply(6));
@@ -118,7 +112,6 @@ public class Blinkerability implements Ability {
             return; // 쿨타임을 소모시키지 않습니다.
         }
         p.sendMessage(ChatColor.GREEN + "쉬슉! 벽을 왜곡하여 공간을 이동했습니다.");
-        lastUsed = now;
     }
 
     /** 대쉬 경로(직선) 상에 있는 플레이어/동물 등 생물에게 대미지를 줍니다. */

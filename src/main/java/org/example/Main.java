@@ -188,6 +188,7 @@ public class Main extends JavaPlugin implements Listener {
         // 게임 종료 시 sweep()은 로드된 청크만 훑으므로, 멀리 떨어진 청크의 잔당은
         // 그 청크가 다음에 로드될 때 이 리스너가 정리합니다.
         getServer().getPluginManager().registerEvents(new EventSpawnCleanupListener(this), this);
+        getServer().getPluginManager().registerEvents(new AdvancementSuppressor(), this);
 
         setupScoreboard();
 
@@ -819,6 +820,9 @@ public class Main extends JavaPlugin implements Listener {
             newWorld.getWorldBorder().setCenter(0, 0);
             newWorld.getWorldBorder().setSize(cfgInitialBorderSize);
             GameRules.setPvp(newWorld, false);
+            // 발전과제 채팅 알림을 끕니다. AdvancementSuppressor가 토스트까지 막지만,
+            // 예외로 통과시킨 레시피 발전과제가 채팅에 새어나가지 않도록 하는 이중 방어입니다.
+            GameRules.setAnnounceAdvancements(newWorld, false);
             // 새로 생성된 월드는 서버 기본 설정(또는 자동 생성 시 기본값)에 따라
             // 난이도가 평화로움으로 잡히는 경우가 있어, 매번 명시적으로 보통 난이도로 고정합니다.
             newWorld.setDifficulty(Difficulty.NORMAL);
@@ -1025,6 +1029,7 @@ public class Main extends JavaPlugin implements Listener {
         gameWorld.getWorldBorder().setCenter(0, 0);
         gameWorld.getWorldBorder().setSize(cfgInitialBorderSize);
         GameRules.setPvp(gameWorld, false);
+        GameRules.setAnnounceAdvancements(gameWorld, false);
         gameWorld.setDifficulty(Difficulty.NORMAL);
 
         try {

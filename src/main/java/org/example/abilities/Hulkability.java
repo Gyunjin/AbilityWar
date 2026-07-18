@@ -118,12 +118,13 @@ public class Hulkability implements Ability {
     @Override
     public void onEntityDamage(Player p, EntityDamageEvent event) {
         if (event.getCause() != EntityDamageEvent.DamageCause.FALL) return;
-        // waitingForLanding도 함께 봅니다: 착지 시 FALL 이벤트가 performSlam(면역 유지 담당)
-        // 보다 먼저 오는 타이밍이 있어, 면역 플래그만으로는 한 틱 놓쳐 자기 슬램 낙하대미지를
-        // 맞을 수 있었습니다. 점프~착지 구간 전체를 확실히 덮습니다.
-        if (fallDamageImmune || waitingForLanding) {
-            event.setCancelled(true);
-        }
+        // 헐크는 낙하 대미지를 아예 받지 않습니다.
+        //
+        // 자기 슬램 점프의 낙하 대미지를 면역 플래그 타이밍(점프 시 켜고 착지 후 끄기)으로
+        // 거르려던 방식이 반복해서 한 틱씩 새어, 여러 차례 고쳐도 자기 능력으로 낙하대미지를
+        // 맞는 문제가 남았습니다. 근본적으로 전부 막습니다 - 도약 후 강타가 핵심인 중량
+        // 탱커라 낙하 면역이 컨셉에도 맞습니다.
+        event.setCancelled(true);
     }
 
     private void performSlam(Player p) {

@@ -24,6 +24,8 @@ import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 
 import java.util.ArrayList;
 
@@ -124,7 +126,34 @@ public class HealthBarListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        Bukkit.getScheduler().runTask(plugin, () -> updateHealthBar(event.getPlayer()));
+        Player p = event.getPlayer();
+        // 재접속 유저의 이름표 잔재를 먼저 정리한 뒤, 다음 틱에 깨끗한 마커를 새로 답니다.
+        resetNameTag(p);
+        Bukkit.getScheduler().runTask(plugin, () -> updateHealthBar(p));
+    }
+
+    /**
+     * 재접속 유저의 머리 위 이름표를 초기화합니다.
+     *
+     * 두 가지 잔재를 정리합니다:
+     *  1) 옛 버전(v4 이전)은 체력을 스코어보드 팀 접두사로 표시했습니다. 그 팀 배정이
+     *     저장된 스코어보드(scoreboard.dat)에 남아, 이미 플레이한 유저의 머리 위 이름이
+     *     옛 접두사와 겹쳐 이상하게 보였습니다. 접두사/접미사가 붙은 팀에서 빼냅니다.
+     *     (네크로맨서 팀은 접두사가 없으므로 건드리지 않습니다.)
+     *  2) 이전 세션의 TextDisplay 마커가 남아 있으면 제거합니다. 스윕/갱신이 곧바로
+     *     깨끗한 마커를 다시 답니다.
+     */
+    private void resetNameTag(Player p) {
+        try {
+            Scoreboard main = Bukkit.getScoreboardManager().getMainScoreboard();
+            Team team = main.getEntryTeam(p.getName());
+            if (team != null && (!team.getPrefix().isEmpty() || !team.getSuffix().isEmpty())) {
+                team.removeEntry(p.getName());
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("[체력바] 이름표 초기화 중 오류: " + e.getMessage());
+        }
+        removeMarker(p);
     }
 
     private void updateHealthBar(LivingEntity entity) {

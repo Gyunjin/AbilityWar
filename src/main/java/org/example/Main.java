@@ -20,6 +20,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -1449,6 +1450,18 @@ public class Main extends JavaPlugin implements Listener {
         if (!(event.getEntity() instanceof Player p)) return;
         if (!isSurvivingParticipant(p)) return;
         event.setCancelled(true);
+    }
+
+    /**
+     * 지옥(네더) 이동을 금지합니다. 게임은 오버월드 아레나에서만 진행되며, 네더로 빠져나가면
+     * 자기장·이벤트·승리 판정이 전부 무의미해집니다.
+     */
+    @EventHandler
+    public void onPlayerPortal(PlayerPortalEvent event) {
+        if (event.getCause() == PlayerPortalEvent.TeleportCause.NETHER_PORTAL) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(ChatColor.RED + "이 게임에서는 지옥(네더)으로 갈 수 없습니다.");
+        }
     }
 
     @EventHandler
